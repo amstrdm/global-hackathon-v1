@@ -1,16 +1,46 @@
 from datetime import datetime
 
-from database.models import Room
+from database.models import Room, User
+from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from .handle_connections import ConnectionManager
 
 
-async def handle_propose_description():
-    pass
+async def broadcast_state_update(room: Room):
+    """Constructs and broadcasts the current state of the room to all clients."""
+    state_update_message = {
+        "type": "description_state_update",
+        "description": room.description,
+        "status": room.status,
+        # You can add any other relevant room data here
+    }
+    await ConnectionManager.broadcast_to_room(
+        str(room.room_phrase), state_update_message
+    )
 
 
-async def handle_chat_message(room, user, data, db):
+async def handle_propose_description(room: Room, user: User, data: dict, db: Session):
+    """Handles the buyer's initial description proposal."""
+    if user.id != room.buyer_id or room.status != "AWAITING_DESCRIPTION":
+        print(
+            f"Unauthorized proposal attempt by user {user.id} in room {room.room_phrase}."
+        )
+        return
+
+    description_text = data.get("description", "").strip()
+    if not description_text:
+        return
+
+    room.description = description_text
+    room.status = "AWAITING_SELLER_APPROVAL"
+
+    db.commit()
+
+    await broadcast_state_update(room)
+
+
+async def handle_chat_message(room: Room, user: User, data: dict, db: Session):
     """
     Validates, persists, and broadcasts a user chat message.
     """
