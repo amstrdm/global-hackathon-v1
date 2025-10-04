@@ -47,7 +47,7 @@ class Room(Base):
 
     # Evidence
     evidence_submitted = Column(JSON)
-    ai_verification_request = Column(JSON, nullable=True)
+    ai_verification_result = Column(JSON, nullable=True)
 
     # Timeline
     created_at = Column(DateTime, default=datetime.now())
