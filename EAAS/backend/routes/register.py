@@ -34,7 +34,7 @@ def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
 
     return {
         "user_id": user_id,
-        "username": user_data.username,
-        "role": user_data.role,
+        "username": user_data.username.lower(),
+        "role": user_data.role.upper(),
         "balance": initial_balance,
     }
