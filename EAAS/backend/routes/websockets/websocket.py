@@ -12,6 +12,7 @@ from fastapi import (
     status,
 )
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from ..rooms.utils import room_to_dict
 from .handle_connections import ConnectionManager
@@ -24,7 +25,10 @@ async def websocket_endpoint(
     websocket: WebSocket, room_phrase: str, user_id: str, db: Session = Depends(get_db)
 ):
     """WebSocket connection for real time updates"""
-    await ConnectionManager.connect(websocket, room_phrase)
+    is_connected = await ConnectionManager.connect(websocket, room_phrase)
+
+    if not is_connected:
+        return
 
     try:
         # Send initial state
@@ -46,6 +50,18 @@ async def websocket_endpoint(
 
         username = user.username
 
+        join_message = {
+            "type": "admin_message",
+            "sender_id": user_id,
+            "sender_username": username,
+            "message": f"{user.role or 'User'} '{username}' joined the room",
+            "timestamp": datetime.now().isoformat(),
+        }
+        room.messages.append(join_message)
+        flag_modified(room, "messages")
+        db.commit()
+        await ConnectionManager.broadcast_to_room(room_phrase, join_message)
+
         while True:
             try:
                 data = await websocket.receive_json()
@@ -61,6 +77,7 @@ async def websocket_endpoint(
                     }
 
                     room.messages.append(message_obj)
+                    flag_modified(room, "messages")
                     db.commit()
                     await ConnectionManager.broadcast_to_room(room_phrase, message_obj)
                 elif message_type == "ping":
@@ -76,11 +93,15 @@ async def websocket_endpoint(
 
     except WebSocketDisconnect:
         ConnectionManager.disconnect(websocket, room_phrase)
-        if user:
-            message_obj = {
+        if "user" in locals() and user:
+            leave_message = {
                 "type": "admin_message",
                 "buyer_id": user_id,
                 "buyer_username": username,
                 "message": f"{user.role} {username} left the room",
                 "timestamp": datetime.now().isoformat(),
             }
+            room.messages.append(leave_message)
+            flag_modified(room, "messages")
+            db.commit()
+            await ConnectionManager.broadcast_to_room(room_phrase, leave_message)
