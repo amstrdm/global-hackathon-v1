@@ -23,6 +23,8 @@ router = APIRouter()
 ACTION_DISPATCHER = {
     "chat_message": event_handler.handle_chat_message,
     "propose_description": event_handler.handle_propose_description,
+    "approve_description": event_handler.handle_approve_description,
+    "edit_description": event_handler.handle_edit_description,
 }
 
 
@@ -51,6 +53,7 @@ async def websocket_endpoint(
     if user.role == "BUYER":
         if room.buyer_id is None:
             room.buyer_id = user.id
+            room.status = "AWAITING_DESCRIPTION"
             db.commit()
             db.refresh(room)
         elif room.buyer_id != user.id:
