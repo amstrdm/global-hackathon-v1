@@ -113,6 +113,17 @@ async def websocket_endpoint(
 
             except (json.JSONDecodeError, KeyError):
                 continue
+            except Exception as e:
+                # Log the error for debugging
+                print(f"An unexpected error occurred in room {room_phrase}: {e}")
+                # Optionally, notify the client
+                await websocket.send_json(
+                    {"type": "error", "message": "An internal server error occurred."}
+                )
+                # Depending on the error, you might want to break the loop
+                # or just continue and wait for the next message.
+                # For now, we'll continue.
+                continue
 
     except WebSocketDisconnect:
         ConnectionManager.disconnect(websocket, room_phrase)
