@@ -34,7 +34,7 @@ class Room(Base):
     seller_id = Column(String, nullable=False)
     buyer_id = Column(String, nullable=True)
     amount = Column(Float, nullable=False)
-    description = Column(String, nullable=False)
+    description = Column(String, nullable=True)
     required_evidence = Column(JSON)
     status = Column(String, default="WAITING_FOR_BUYER")
 

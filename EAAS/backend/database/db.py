@@ -1,12 +1,12 @@
 import os
-import uuid
 from contextlib import contextmanager
 
 from fastapi import HTTPException
-from models import Base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from utils.logging_config import get_logger
+
+from .models import Base
 
 logger = get_logger("database.db")
 
