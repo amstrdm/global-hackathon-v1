@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import JSON, Column, DateTime, Float, String
+from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -57,7 +58,7 @@ class Room(Base):
     completed_at = Column(DateTime, nullable=True)
 
     # Messages
-    messages = Column(JSON, default=list)
+    messages = Column(MutableList.as_mutable(JSON), default=list)
 
 
 class Transaction(Base):
