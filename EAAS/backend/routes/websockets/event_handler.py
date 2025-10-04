@@ -81,7 +81,7 @@ async def handle_approve_description(room: Room, user: User, data: dict, db: Ses
         )
         return
 
-    room.status = "AWAITING_PAYMENT"
+    room.status = "AWAITING_SELLER_READY"
     db.commit()
     print(f"Description approved in room {room.room_phrase}. New status: {room.status}")
 
@@ -119,4 +119,19 @@ async def handle_edit_description(room: Room, user: User, data: dict, db: Sessio
 
     db.commit()
 
-    await broadcast_state_update()
+    await broadcast_state_update(room)
+
+
+async def handle_confirm_seller_ready(room: Room, user: User, data: dict, db: Session):
+    """Handles the Seller confirming hes ready to deliver & receive the money"""
+
+    if user.id != room.buyer_id or room.status != "AWAITING_SELLER_READY":
+        print(
+            f"Unauthorized ready attempt by user {user.id} in room {room.room_phrase}."
+        )
+        return
+
+    room.status = "AWAITING PAYMENT"
+    db.commit()
+
+    await broadcast_state_update(room)

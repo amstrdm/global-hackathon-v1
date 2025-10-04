@@ -25,6 +25,7 @@ ACTION_DISPATCHER = {
     "propose_description": event_handler.handle_propose_description,
     "approve_description": event_handler.handle_approve_description,
     "edit_description": event_handler.handle_edit_description,
+    "confirm_seller_ready": event_handler.handle_confirm_seller_ready,
 }
 
 
@@ -72,7 +73,7 @@ async def websocket_endpoint(
             code=status.WS_1008_POLICY_VIOLATION, reason="Invalid user role"
         )
 
-    if not ConnectionManager.connect(websocket, room_phrase):
+    if not await ConnectionManager.connect(websocket, room_phrase):
         raise WebSocketException(
             code=status.WS_1008_POLICY_VIOLATION, reason="Room is full"
         )
@@ -102,7 +103,6 @@ async def websocket_endpoint(
                 message_type = data.get("type")
 
                 handler = ACTION_DISPATCHER.get(message_type)
-
                 if handler:
                     await handler(room, user, data, db)
                 else:
