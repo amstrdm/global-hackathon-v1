@@ -12,6 +12,7 @@ router = APIRouter()
 class UserCreate(BaseModel):
     username: str
     role: str = "BUYER"
+    public_key: str
 
 
 @router.post("/register")
@@ -23,7 +24,10 @@ def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
     user_id = str(uuid.uuid4())
 
     user = User(
-        id=user_id, username=user_data.username.lower(), role=user_data.role.upper()
+        id=user_id,
+        username=user_data.username.lower(),
+        role=user_data.role.upper(),
+        public_key=user_data.public_key,
     )
     db.add(user)
 

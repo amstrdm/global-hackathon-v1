@@ -15,6 +15,7 @@ class User(Base):
     id = Column(String, primary_key=True)
     username = Column(String, unique=True, nullable=False)
     role = Column(String, nullable=False)
+    public_key = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.now())
 
 
@@ -41,7 +42,9 @@ class Room(Base):
     # Transaction Details
     transaction_id = Column(String, nullable=True)
     escrow_address = Column(String, nullable=True)
-    commitment_hash = Column(String, nullable=True)
+    buyer_public_key = Column(String, nullable=True)
+    seller_public_key = Column(String, nullable=True)
+    ai_public_key = Column(String, nullable=True)
 
     # Cryptographic shares
     shares = Column(JSON)
