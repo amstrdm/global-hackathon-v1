@@ -22,7 +22,9 @@ def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
 
     user_id = str(uuid.uuid4())
 
-    user = User(id=user_id, username=user_data.username, role=user_data.role)
+    user = User(
+        id=user_id, username=user_data.username.lower(), role=user_data.role.upper()
+    )
     db.add(user)
 
     # Create Wallet
@@ -34,7 +36,7 @@ def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
 
     return {
         "user_id": user_id,
-        "username": user_data.username.lower(),
-        "role": user_data.role.upper(),
+        "username": user_data.username,
+        "role": user_data.role,
         "balance": initial_balance,
     }
