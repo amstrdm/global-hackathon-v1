@@ -54,6 +54,7 @@ async def websocket_endpoint(
     if user.role == "BUYER":
         if room.buyer_id is None:
             room.buyer_id = user.id
+            room.buyer_public_key = user.public_key
             room.status = "AWAITING_DESCRIPTION"
             db.commit()
             db.refresh(room)

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List
 
 from database.db import get_db, get_session
-from database.models import Room
+from database.models import Room, User
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -17,7 +17,6 @@ router = APIRouter()
 
 
 class RoomCreate(BaseModel):
-    seller_id: str
     amount: float
 
 
@@ -55,14 +54,25 @@ def generate_room_phrase(num_words=4):
                 return phrase
 
 
-@router.post("/rooms/create")
-def create_room(room_data: RoomCreate, db: Session = Depends(get_db)):
+@router.post("/rooms/create/{user_id}")
+def create_room(room_data: RoomCreate, user_id: str, db: Session = Depends(get_db)):
     """Seller creates a room"""
+    user = db.query(User).filter_by(id=user_id).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User does not exist.")
+
+    if not user.role == "SELLER":
+        raise HTTPException(
+            status_code=403, detail="You need to be a Seller to create a room."
+        )
+
     room_phrase = generate_room_phrase()
 
     room = Room(
         room_phrase=room_phrase,
-        seller_id=room_data.seller_id,
+        seller_id=user.id,
+        seller_public_key=user.public_key,
         amount=room_data.amount,
         status="WAITING_FOR_BUYER",
         created_at=datetime.now(),
