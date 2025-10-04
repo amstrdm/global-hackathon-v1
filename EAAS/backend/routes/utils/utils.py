@@ -1,3 +1,6 @@
+import hashlib
+import secrets
+
 from database.models import Room
 
 
@@ -42,3 +45,23 @@ def room_to_dict(room: Room) -> dict:
         ),
         "messages": room.messages or [],
     }
+
+
+def keccak256_with_stdlib() -> str:
+    """
+    WARNING: This uses hashlib.sha3_256 (NIST SHA3-256), NOT Keccak-256.
+    The result is therefore NOT the correct Keccak-256 used by EIP-55.
+    This function exists only for a zero-dependency fallback (not EIP-55 correct).
+    """
+    addr = secrets.token_hex(20)  # 40 hex chars
+    addr = addr.lower()
+
+    h = hashlib.sha3_256()
+    h.update(addr.encode("ascii"))
+    hash_hex = h.hexdigest()
+
+    checksum_addr = "".join(
+        ch.upper() if int(hash_hex[i], 16) >= 8 else ch for i, ch in enumerate(addr)
+    )
+    # Note: THIS IS NOT EIP-55 (because sha3_256 != keccak_256), but it is deterministic and looks like checksumed.
+    return "0x" + checksum_addr

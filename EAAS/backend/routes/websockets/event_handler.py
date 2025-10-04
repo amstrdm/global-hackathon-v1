@@ -1,23 +1,22 @@
 from datetime import datetime
 
-from database.models import Room, User
+from database.models import Room, User, Wallet
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from .handle_connections import ConnectionManager
+from .redis_manager import RedisConnectionManager
 
 
 async def broadcast_state_update(room: Room):
     """Constructs and broadcasts the current state of the room to all clients."""
+    manager = RedisConnectionManager()
     state_update_message = {
         "type": "description_state_update",
         "description": room.description,
         "status": room.status,
-        # You can add any other relevant room data here
+        "escrow_address": room.escrow_address,
     }
-    await ConnectionManager.broadcast_to_room(
-        str(room.room_phrase), state_update_message
-    )
+    await manager.broadcast_to_room(str(room.room_phrase), state_update_message)
 
 
 async def handle_chat_message(room: Room, user: User, data: dict, db: Session):
@@ -124,14 +123,37 @@ async def handle_edit_description(room: Room, user: User, data: dict, db: Sessio
 
 async def handle_confirm_seller_ready(room: Room, user: User, data: dict, db: Session):
     """Handles the Seller confirming hes ready to deliver & receive the money"""
-
-    if user.id != room.buyer_id or room.status != "AWAITING_SELLER_READY":
+    if user.id != room.seller_id or room.status != "AWAITING_SELLER_READY":
         print(
             f"Unauthorized ready attempt by user {user.id} in room {room.room_phrase}."
         )
         return
 
     room.status = "AWAITING PAYMENT"
+    db.commit()
+
+    await broadcast_state_update(room)
+
+
+async def handle_lock_funds(room: Room, user: User, data: dict, db: Session):
+    """Handles the locking of the buyers funds"""
+    if user.id != room.buyer_id or room.status != "AWAITING PAYMENT":
+        print(
+            f"Unauthorized locking attempt by user {user.id} in room {room.room_phrase}.",
+            f"{user.id != room.buyer_id}",
+            f"{room.status != "AWAITING PAYMENT"}",
+        )
+        return
+
+    user_wallet = db.query(Wallet).filter_by(user_id=user.id).first()
+
+    if not user_wallet:
+        print("Wallet missing???")
+        raise
+    user_wallet.balance -= room.amount
+    user_wallet.locked += room.amount
+
+    room.status = "MONEY_SECURED"
     db.commit()
 
     await broadcast_state_update(room)

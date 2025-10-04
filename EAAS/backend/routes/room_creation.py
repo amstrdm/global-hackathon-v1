@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from utils.logging_config import get_logger
 
-from .utils.utils import room_to_dict
+from .utils.utils import keccak256_with_stdlib, room_to_dict
 
 logger = get_logger()
 router = APIRouter()
@@ -68,9 +68,11 @@ def create_room(room_data: RoomCreate, user_id: str, db: Session = Depends(get_d
         )
 
     room_phrase = generate_room_phrase()
+    escrow_address = keccak256_with_stdlib()
 
     room = Room(
         room_phrase=room_phrase,
+        escrow_address=escrow_address,
         seller_id=user.id,
         seller_public_key=user.public_key,
         amount=room_data.amount,
