@@ -31,24 +31,50 @@ async def websocket_endpoint(
     websocket: WebSocket, room_phrase: str, user_id: str, db: Session = Depends(get_db)
 ):
     """WebSocket connection for real time updates"""
-    is_connected = await ConnectionManager.connect(websocket, room_phrase)
+    room = db.query(Room).filter_by(room_phrase=room_phrase).first()
+    user = db.query(User).filter_by(id=user_id).first()
 
-    if not is_connected:
-        return
+    await websocket.accept()
 
+    if not room:
+        raise WebSocketException(
+            code=status.WS_1008_POLICY_VIOLATION, reason="Room not found"
+        )
+
+    if not user:
+        raise WebSocketException(
+            code=status.WS_1008_POLICY_VIOLATION, reason="User not found"
+        )
+
+    print(user.role)
+
+    if user.role == "BUYER":
+        if room.buyer_id is None:
+            room.buyer_id = user.id
+            db.commit()
+            db.refresh(room)
+        elif room.buyer_id != user.id:
+            raise WebSocketException(
+                code=status.WS_1008_POLICY_VIOLATION, reason="Room already has a buyer"
+            )
+
+    elif user.role == "SELLER":
+        if room.seller_id != user.id:
+            raise WebSocketException(
+                code=status.WS_1008_POLICY_VIOLATION,
+                reason="You are not the seller of this room",
+            )
+    else:
+        raise WebSocketException(
+            code=status.WS_1008_POLICY_VIOLATION, reason="Invalid user role"
+        )
+
+    if not ConnectionManager.connect(websocket, room_phrase):
+        raise WebSocketException(
+            code=status.WS_1008_POLICY_VIOLATION, reason="Room is full"
+        )
     try:
         # Send initial state
-        room = db.query(Room).filter_by(room_phrase=room_phrase).first()
-        if not room:
-            raise WebSocketException(
-                code=status.WS_1008_POLICY_VIOLATION, reason="Room not found"
-            )
-
-        user = db.query(User).filter_by(id=user_id).first()
-        if not user:
-            raise WebSocketException(
-                code=status.WS_1008_POLICY_VIOLATION, reason="User not found"
-            )
 
         await websocket.send_json(
             {"type": "connected", "room": room_to_dict(room), "user_id": user_id}

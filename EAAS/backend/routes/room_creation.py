@@ -34,7 +34,7 @@ def generate_room_phrase(num_words=4):
 
     try:
         bip39path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "bip39.txt"
+            os.path.dirname(os.path.abspath(__file__)), "utils", "bip39.txt"
         )
         with open(bip39path, "r") as f:
             wordlist = [line.strip() for line in f if line.strip()]

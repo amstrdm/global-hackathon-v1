@@ -14,13 +14,8 @@ class ConnectionManager:
         """Add connection to room"""
         current_connections = room_connections.get(room_phrase, set())
         if len(current_connections) >= 2:
-            await websocket.accept()
-            await websocket.close(
-                code=status.WS_1008_POLICY_VIOLATION, reason="Room is full"
-            )
             return False
 
-        await websocket.accept()
         if room_phrase not in room_connections:
             room_connections[room_phrase] = set()
         room_connections[room_phrase].add(websocket)
