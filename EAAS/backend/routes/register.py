@@ -26,7 +26,7 @@ def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
     db.add(user)
 
     # Create Wallet
-    initial_balance = 1000 if user_data.role == "BUYER" else 500
+    initial_balance = 1000 if user_data.role.upper() == "BUYER" else 500
     wallet = Wallet(
         user_id=user_id, balance=initial_balance, locked=0.0, transactions=[]
     )
