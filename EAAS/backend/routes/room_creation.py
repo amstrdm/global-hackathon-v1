@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from utils.logging_config import get_logger
 
-from .utils import room_to_dict
+from .utils.utils import room_to_dict
 
 logger = get_logger()
 router = APIRouter()

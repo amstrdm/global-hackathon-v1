@@ -14,10 +14,16 @@ from fastapi import (
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from ..rooms.utils import room_to_dict
+from ..utils.utils import room_to_dict
+from . import event_handler
 from .handle_connections import ConnectionManager
 
 router = APIRouter()
+
+ACTION_DISPATCHER = {
+    "chat_message": event_handler.handle_chat_message,
+    "propose_description": event_handler.handle_propose_description,
+}
 
 
 @router.websocket("/ws/{room_phrase}/{user_id}")
@@ -52,8 +58,7 @@ async def websocket_endpoint(
 
         join_message = {
             "type": "admin_message",
-            "sender_id": user_id,
-            "sender_username": username,
+            "username": username,
             "message": f"{user.role or 'User'} '{username}' joined the room",
             "timestamp": datetime.now().isoformat(),
         }
@@ -67,28 +72,17 @@ async def websocket_endpoint(
                 data = await websocket.receive_json()
                 message_type = data.get("type")
 
-                if message_type == "chat_message":
-                    message_obj = {
-                        "type": "chat_message",
-                        "sender_id": user_id,
-                        "sender_username": username,
-                        "message": data["message"],
-                        "timestamp": datetime.now().isoformat(),
-                    }
+                handler = ACTION_DISPATCHER.get(message_type)
 
-                    room.messages.append(message_obj)
-                    flag_modified(room, "messages")
-                    db.commit()
-                    await ConnectionManager.broadcast_to_room(room_phrase, message_obj)
-                elif message_type == "ping":
-                    await websocket.send_json({"type": "pong"})
-            except json.JSONDecodeError:
-                await websocket.send_json(
-                    {"type": "error", "detail": "Invalid JSON format"}
-                )
-                continue
+                if handler:
+                    await handler(room, user, data, db)
+                else:
+                    raise WebSocketException(
+                        code=status.WS_1008_POLICY_VIOLATION,
+                        reason="Unknown message type",
+                    )
 
-            except KeyError:
+            except (json.JSONDecodeError, KeyError):
                 continue
 
     except WebSocketDisconnect:
@@ -96,8 +90,7 @@ async def websocket_endpoint(
         if "user" in locals() and user:
             leave_message = {
                 "type": "admin_message",
-                "buyer_id": user_id,
-                "buyer_username": username,
+                "username": username,
                 "message": f"{user.role} {username} left the room",
                 "timestamp": datetime.now().isoformat(),
             }

@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import register
-from routes.rooms import room_creation
+from routes import register, room_creation
 from routes.websockets import websocket
 from utils.logging_config import get_logger
 
