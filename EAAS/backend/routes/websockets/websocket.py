@@ -30,6 +30,8 @@ ACTION_DISPATCHER = {
     "buyer_lock_funds": event_handler.handle_lock_funds,
     "product_delivered": event_handler.handle_confirm_product_delivered,
     "transaction_successfull": event_handler.handle_transaction_successfull,
+    "init_dispute": event_handler.handle_initiate_dispute,
+    "finalize_submission": event_handler.handle_finalize_submission,
 }
 
 

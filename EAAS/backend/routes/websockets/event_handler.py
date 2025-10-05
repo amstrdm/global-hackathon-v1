@@ -1,23 +1,37 @@
+import os
 from datetime import datetime
 
 from database.models import Room, User, Wallet
 from routes.utils import contract_logic
-from routes.utils.smart_contract import Decision, Party
+from routes.utils.smart_contract import CryptoUtils, Decision, Party
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
+from ..utils.ai_arbiter import AIVerifier, TransactionClassifier
 from .redis_manager import RedisConnectionManager
 
 
 async def broadcast_state_update(room: Room):
     """Constructs and broadcasts the current state of the room to all clients."""
     manager = RedisConnectionManager()
-    state_update_message = {
-        "type": "description_state_update",
-        "description": room.description,
-        "status": room.status,
-        "escrow_address": room.escrow_address,
-    }
+    if room.status == "DISPUTE":
+        state_update_message = {
+            "type": "state_update",
+            "description": room.description,
+            "dispute_status": room.dispute_status,
+            "required_evidence": room.required_evidence,
+            "submitted_evidence": room.submitted_evidence,
+            "ai_verdict": room.ai_verdict,
+            "contract": room.contract,
+        }
+    else:
+        state_update_message = {
+            "type": "state_update",
+            "description": room.description,
+            "status": room.status,
+            "escrow_address": room.escrow_address,
+            "contract": room.contract,
+        }
     await manager.broadcast_to_room(str(room.room_phrase), state_update_message)
 
 
@@ -183,6 +197,10 @@ async def handle_confirm_product_delivered(
 
     signed_message = data.get("signed_message")
 
+    print(
+        f"Received raw signed_message: '{signed_message}' length: {len(signed_message)}"
+    )
+
     if not signed_message:
         print("Signed message missing")
         return
@@ -264,7 +282,83 @@ async def handle_transaction_successfull(
         buyer_wallet.locked -= room.amount
         recipient_wallet.balance += room.amount
 
-        room.status = "TRANSACTION SUCCESSFULL"
+        room.status = "COMPLETE"
+
+    db.commit()
+    await broadcast_state_update(room)
+
+
+async def handle_initiate_dispute(room: Room, user: User, data: dict, db: Session):
+    """Handles the Buyer initiating a dispute."""
+    if user.id != room.buyer_id or room.status != "PRODUCT DELIVERED":
+        print(
+            "Unauthorized or invalid state for dispute",
+            f"{user.id != room.buyer_id}",
+            f"{room.status != "PRODUCT DELIVERED"}",
+        )
+        return
+
+    classifier = TransactionClassifier()
+    classification = await classifier.classify(room.description)
+
+    room.dispute_status = "AWAITING_EVIDENCE"
+    room.required_evidence = classification.get("required_evidence", [])
+    room.status = "DISPUTE"
+    db.commit()
+
+    await broadcast_state_update(room)
+
+
+async def handle_finalize_submission(room: Room, user: User, data: dict, db: Session):
+    """Handles the Seller finalizing their evidence submission, triggering AI review."""
+    if user.id != room.seller_id or room.dispute_status != "AWAITING_EVIDENCE":
+        return
+
+    # TODO: Check if all required_evidence has been submitted
+    room.dispute_status = "IN_REVIEW"
+    db.commit()
+    await broadcast_state_update(room)
+
+    verifier = AIVerifier()
+    transaction_details = {"description": room.description, "amount": room.amount}
+    final_verdict = await verifier.verify_evidence(
+        transaction_details, room.submitted_evidence
+    )
+
+    room.ai_verdict = final_verdict
+    room.dispute_status = "RESOLVED"
+    flag_modified(room, "ai_verdict")
+
+    ai_decision = final_verdict.get("decision")
+    if ai_decision == "APPROVE":
+        contract_decision = Decision.RELEASE_TO_SELLER
+    else:
+        contract_decision = Decision.REFUND_TO_BUYER
+
+    ai_private_key_hex = room.private_key
+    ai_private_key_bytes = bytes.fromhex(ai_private_key_hex)
+
+    contract_dict = room.contract
+    message_to_sign = f"{contract_dict['contract_id']}:{Party.AI_ORACLE.value}:{contract_decision.value}"
+
+    ai_signature = CryptoUtils().sign_message(message_to_sign, ai_private_key_bytes)
+    ai_signature_hex = ai_signature.hex()
+
+    updated_contract = contract_logic.sign(
+        contract_dict, Party.AI_ORACLE, contract_decision, ai_signature_hex
+    )
+    room.contract = updated_contract
+    flag_modified(room, "contract")
+
+    if updated_contract["status"] == "COMPLETED":
+        recipient_id = updated_contract["released_to"]
+        recipient_wallet = db.query(Wallet).filter_by(user_id=recipient_id).first()
+        buyer_wallet = db.query(Wallet).filter_by(user_id=room.buyer_id).first()
+
+        buyer_wallet.locked -= room.amount
+        recipient_wallet.balance += room.amount
+
+        room.status = "COMPLETE"
 
     db.commit()
     await broadcast_state_update(room)

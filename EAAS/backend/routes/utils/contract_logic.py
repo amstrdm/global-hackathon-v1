@@ -60,13 +60,14 @@ def sign(
     """Applies a signature to a contract dictionary and returns the updated dictionary."""
     if contract["status"] != "ACTIVE":
         raise ValueError("Contract is not active.")
-
+    print("WERE SIGNING")
     # Get public key and signature from hex
     public_key_hex = contract["public_keys"][party.value]
+    print(public_key_hex)
     public_key_pem = bytes.fromhex(public_key_hex)
-
+    print("NORMAL EKYS DONE")
     signature_bytes = bytes.fromhex(signature_hex)
-
+    print("TRYING TO GET SIGNATURE")
     # The message that was signed
     message = f"{contract['contract_id']}:{party.value}:{decision.value}"
 

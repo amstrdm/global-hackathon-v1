@@ -437,7 +437,9 @@ if __name__ == "__main__":
     seller_private, seller_public = crypto.generate_keypair()
     ai_private, ai_public = crypto.generate_keypair()
 
+    print(buyer_public.hex(), "\n\n\n\n", buyer_private.hex())
     print("✅ Buyer keypair generated")
+    print(seller_public.hex(), "\n\n\n\n", seller_private.hex())
     print("✅ Seller keypair generated")
     print("✅ AI Oracle keypair generated")
 

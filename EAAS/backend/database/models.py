@@ -36,7 +36,6 @@ class Room(Base):
     buyer_id = Column(String, nullable=True)
     amount = Column(Float, nullable=False)
     description = Column(String, nullable=True)
-    required_evidence = Column(JSON)
     status = Column(String, default="WAITING_FOR_BUYER")
 
     # Transaction Details
@@ -49,9 +48,17 @@ class Room(Base):
     # Cryptographic shares
     contract = Column(JSON, nullable=True)
 
-    # Evidence
-    evidence_submitted = Column(JSON)
-    ai_verification_result = Column(JSON, nullable=True)
+    # AI Dispute System
+    dispute_status = Column(
+        String, nullable=True
+    )  # e.g., AWAITING_EVIDENCE, IN_REVIEW, RESOLVED
+    required_evidence = Column(
+        JSON, nullable=True
+    )  # Stores the list of what the AI needs
+    submitted_evidence = Column(
+        JSON, nullable=True, default=lambda: {}
+    )  # Stores links/filenames of submitted evidence
+    ai_verdict = Column(JSON, nullable=True)  # Stores the final JSON output from the AI
 
     # Timeline
     created_at = Column(DateTime, default=datetime.now())

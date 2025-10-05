@@ -19,8 +19,9 @@ def room_to_dict(room: Room) -> dict:
         "status": room.status,
         "transaction_id": room.transaction_id,
         "escrow_address": room.escrow_address,
-        "evidence_submitted": room.evidence_submitted or [],
-        "ai_verification_result": room.ai_verification_result,
+        "evidence_submitted": room.submitted_evidence or [],
+        "ai_verification_result": room.ai_verdict,
+        "contract": room.contract,
         "created_at": (
             room.created_at.isoformat()
             if room.created_at is not None
