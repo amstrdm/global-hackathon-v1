@@ -1,14 +1,38 @@
-import { useEffect, useRef, useId } from 'react';
+import React, { useEffect, useRef, useId } from 'react';
 import './GlassSurface.css';
 
-const GlassSurface = ({
+interface GlassSurfaceProps {
+  children: React.ReactNode;
+  width?: number | string;
+  height?: number | string;
+  borderRadius?: number;
+  borderWidth?: number;
+  brightness?: number;
+  opacity?: number;
+  blur?: number;
+  displace?: number;
+  backgroundOpacity?: number;
+  saturation?: number;
+  distortionScale?: number;
+  redOffset?: number;
+  greenOffset?: number;
+  blueOffset?: number;
+  xChannel?: string;
+  yChannel?: string;
+  mixBlendMode?: string;
+  className?: string;
+  style?: React.CSSProperties;
+  onClick?: () => void;
+}
+
+const GlassSurface: React.FC<GlassSurfaceProps> = ({
   children,
   width = 200,
   height = 80,
   borderRadius = 20,
   borderWidth = 0.07,
   brightness = 50,
-  opacity = 0.93,
+  opacity = 0.7,
   blur = 11,
   displace = 0,
   backgroundOpacity = 0,
@@ -21,19 +45,20 @@ const GlassSurface = ({
   yChannel = 'G',
   mixBlendMode = 'difference',
   className = '',
-  style = {}
+  style = {},
+  onClick
 }) => {
   const uniqueId = useId().replace(/:/g, '-');
   const filterId = `glass-filter-${uniqueId}`;
   const redGradId = `red-grad-${uniqueId}`;
   const blueGradId = `blue-grad-${uniqueId}`;
 
-  const containerRef = useRef(null);
-  const feImageRef = useRef(null);
-  const redChannelRef = useRef(null);
-  const greenChannelRef = useRef(null);
-  const blueChannelRef = useRef(null);
-  const gaussianBlurRef = useRef(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const feImageRef = useRef<SVGFEImageElement>(null);
+  const redChannelRef = useRef<SVGFEDisplacementMapElement>(null);
+  const greenChannelRef = useRef<SVGFEDisplacementMapElement>(null);
+  const blueChannelRef = useRef<SVGFEDisplacementMapElement>(null);
+  const gaussianBlurRef = useRef<SVGFEGaussianBlurElement>(null);
 
   const generateDisplacementMap = () => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -117,21 +142,6 @@ const GlassSurface = ({
   }, []);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    const resizeObserver = new ResizeObserver(() => {
-      setTimeout(updateDisplacementMap, 0);
-    });
-
-    resizeObserver.observe(containerRef.current);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
     setTimeout(updateDisplacementMap, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [width, height]);
@@ -149,7 +159,7 @@ const GlassSurface = ({
     return div.style.backdropFilter !== '';
   };
 
-  const containerStyle = {
+  const containerStyle: React.CSSProperties = {
     ...style,
     width: typeof width === 'number' ? `${width}px` : width,
     height: typeof height === 'number' ? `${height}px` : height,
@@ -157,13 +167,14 @@ const GlassSurface = ({
     '--glass-frost': backgroundOpacity,
     '--glass-saturation': saturation,
     '--filter-id': `url(#${filterId})`
-  };
+  } as React.CSSProperties;
 
   return (
     <div
       ref={containerRef}
       className={`glass-surface ${supportsSVGFilters() ? 'glass-surface--svg' : 'glass-surface--fallback'} ${className}`}
       style={containerStyle}
+      onClick={onClick}
     >
       <svg className="glass-surface__filter" xmlns="http://www.w3.org/2000/svg">
         <defs>

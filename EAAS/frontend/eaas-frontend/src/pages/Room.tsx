@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useUserStore, useRoomStore } from "../store/useStore";
 import { connectWebSocket, disconnectWebSocket } from "../api/websocket";
@@ -11,6 +11,8 @@ import ContractDetails from "../components/ContractDetails";
 import AIVerdict from "../components/AIVerdict";
 import WalletDisplay from "../components/WalletDisplay";
 import LoadingSpinner from "../components/LoadingSpinner";
+import AnimatedBackground from "../components/AnimatedBackground";
+import GlassSurface from "../components/GlassSurface";
 
 const Room = () => {
   const { room_phrase } = useParams<{ room_phrase: string }>();
@@ -91,46 +93,67 @@ const Room = () => {
     user?.role === "SELLER";
 
 
-  return (
-    <div className="max-w-7xl mx-auto p-4">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-3">
-          <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">
-                Transaction Room:{" "}
-                <span className="text-cyan-400">{room.room_phrase}</span>
-              </h2>
-              <button
-                onClick={() => navigate("/dashboard")}
-                className="py-2 px-4 bg-gray-600 hover:bg-gray-500 rounded-md font-semibold transition"
-              >
-                Back to Dashboard
-              </button>
-            </div>
-            
-            <StatusTracker
-              status={room.status}
-              disputeStatus={room.dispute_status}
-            />
-            
-            <ActionPanel />
-            
-            {showEvidenceUploader && <EvidenceUploader />}
-            
-            
-            {room.contract && <ContractDetails />}
-            
-            {room.ai_verdict && <AIVerdict />}
-          </div>
-        </div>
+  const getBackgroundStatus = () => {
+    if (room.status === "DISPUTE") return "dispute";
+    if (room.status === "COMPLETE" || room.status === "TRANSACTION SUCCESSFULL") return "complete";
+    return "transaction";
+  };
 
-        {/* Sidebar */}
-        <div className="lg:col-span-1 space-y-6">
-          <WalletDisplay />
-          <div className="bg-gray-800 p-4 rounded-lg shadow-xl">
-            <ChatWindow />
+  return (
+    <div className="relative min-h-screen overflow-hidden">
+      <AnimatedBackground status={getBackgroundStatus()} />
+      
+      <div className="relative z-10 max-w-7xl mx-auto p-4">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-3">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-3xl text-white font-light" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                  Transaction Room:{" "}
+                  <span className="text-cyan-400 font-mono">{room.room_phrase}</span>
+                </h2>
+                <GlassSurface
+                  width={180}
+                  height={50}
+                  borderRadius={25}
+                  brightness={50}
+                  opacity={0.8}
+                  className="cursor-pointer hover:brightness-70 transition-all duration-300"
+                  onClick={() => navigate("/dashboard")}
+                >
+                  <div className="flex items-center justify-center h-full">
+                    <span 
+                      className="text-white text-lg font-light"
+                      style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
+                    >
+                      Back to Dashboard
+                    </span>
+                  </div>
+                </GlassSurface>
+              </div>
+              
+              <StatusTracker
+                status={room.status}
+                disputeStatus={room.dispute_status}
+              />
+              
+              <ActionPanel />
+              
+              {showEvidenceUploader && <EvidenceUploader />}
+              
+              {room.contract && <ContractDetails />}
+              
+              {room.ai_verdict && <AIVerdict />}
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="lg:col-span-1 space-y-6">
+            <WalletDisplay />
+            <div className="p-4">
+              <ChatWindow />
+            </div>
           </div>
         </div>
       </div>

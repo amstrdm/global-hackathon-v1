@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import Home from "./pages/Home";
+import SimpleFlow from "./components/SimpleFlow";
 import Dashboard from "./pages/Dashboard";
 import Room from "./pages/Room";
 import { useUserStore } from "./store/useStore";
@@ -8,14 +8,11 @@ function App() {
   const { user } = useUserStore();
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-4xl font-bold text-center mb-8 text-cyan-400">
-        EAAS - Escrow as a Service
-      </h1>
+    <div className="min-h-screen">
       <Routes>
         <Route
           path="/"
-          element={!user ? <Home /> : <Navigate to="/dashboard" />}
+          element={!user ? <SimpleFlow /> : <Navigate to="/dashboard" />}
         />
         <Route
           path="/dashboard"

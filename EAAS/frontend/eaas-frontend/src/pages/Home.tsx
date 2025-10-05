@@ -28,7 +28,7 @@ const Home = () => {
     setError("");
 
     try {
-      const { publicKey, privateKey, publicKeyHex, privateKeyHex } = generateKeyPair();
+      const { publicKey, publicKeyHex, privateKeyHex } = generateKeyPair();
       const response = await registerUser(
         username.toLowerCase().trim(),
         role,

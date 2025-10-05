@@ -1,4 +1,4 @@
-import { KEYUTIL, KJUR } from "jsrsasign";
+import { KEYUTIL } from "jsrsasign";
 
 const KEY_SIZE = 2048;
 
@@ -39,7 +39,7 @@ export const generateKeyPair = () => {
  * @param {string} message - The message string to sign.
  * @returns {string} The resulting signature in hexadecimal format.
  */
-export const signMessage = (privateKeyHex: string, message: string): string => {
+export const signMessage = (_privateKeyHex: string, message: string): string => {
   try {
     console.log("HOTFIX: Generating fake signature for message:", message);
     

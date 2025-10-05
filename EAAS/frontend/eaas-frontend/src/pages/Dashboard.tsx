@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useUserStore } from "../store/useStore";
 import { createRoom, getRooms, getWallet } from "../api/api";
 import WalletDisplay from "../components/WalletDisplay";
+import AnimatedBackground from "../components/AnimatedBackground";
+import GlassSurface from "../components/GlassSurface";
 
 const Dashboard = () => {
   const { user, logout, setWallet } = useUserStore();
@@ -96,34 +98,56 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto mt-10 p-8">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2">
-          <div className="bg-gray-800 rounded-lg shadow-xl p-6">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h2 className="text-2xl font-bold">Welcome, {user?.username}</h2>
-                <p className="text-gray-400">You are a {user?.role}</p>
+    <div className="relative min-h-screen overflow-hidden">
+      <AnimatedBackground status="room" />
+      
+      <div className="relative z-10 max-w-6xl mx-auto p-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-2">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-3xl text-white font-light" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                    Welcome, <span className="text-cyan-400">{user?.username}</span>
+                  </h2>
+                  <p className="text-gray-300 text-xl font-light" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                    You are a {user?.role}
+                  </p>
+                </div>
+                <GlassSurface
+                  width={120}
+                  height={50}
+                  borderRadius={25}
+                  brightness={50}
+                  opacity={0.8}
+                  className="cursor-pointer hover:brightness-70 transition-all duration-300"
+                  onClick={logout}
+                >
+                  <div className="flex items-center justify-center h-full">
+                    <span 
+                      className="text-white text-lg font-light"
+                      style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
+                    >
+                      Logout
+                    </span>
+                  </div>
+                </GlassSurface>
               </div>
-              <button
-                onClick={logout}
-                className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded-md font-semibold transition"
-              >
-                Logout
-              </button>
-            </div>
 
-            <div className="border-t border-gray-700 my-6"></div>
+              <div className="border-t border-white/20 my-6"></div>
 
             {user?.role === "SELLER" ? (
               <div>
-                <h3 className="text-xl font-semibold mb-4">Create New Escrow Room</h3>
+                <h3 className="text-2xl text-white mb-6 font-light" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                  Create New Escrow Room
+                </h3>
                 <form onSubmit={handleCreateRoom}>
-                  <div className="mb-4">
+                  <div className="mb-6">
                     <label
                       htmlFor="amount"
-                      className="block text-sm font-medium text-gray-300 mb-2"
+                      className="block text-xl text-gray-300 mb-4 font-light"
+                      style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                     >
                       Transaction Amount
                     </label>
@@ -132,29 +156,48 @@ const Dashboard = () => {
                       type="number"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md"
+                      className="w-full max-w-md p-4 text-xl text-center bg-white/5 backdrop-blur-sm border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:border-white/60 focus:bg-white/10 focus:ring-4 focus:ring-white/10 transition-all duration-300"
+                      style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif', fontWeight: '300' }}
                       placeholder="e.g., 500"
                       required
                     />
                   </div>
-                  {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-2 px-4 bg-cyan-600 hover:bg-cyan-700 rounded-md font-semibold transition disabled:opacity-50"
+                  {error && <p className="text-red-400 text-xl mb-4 font-light" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>{error}</p>}
+                  <GlassSurface
+                    width={200}
+                    height={60}
+                    borderRadius={30}
+                    brightness={loading ? 30 : 60}
+                    opacity={loading ? 0.6 : 0.9}
+                    className={`cursor-pointer transition-all duration-300 ${
+                      loading 
+                        ? 'cursor-not-allowed' 
+                        : 'hover:brightness-80 hover:scale-105'
+                    }`}
+                    onClick={loading ? undefined : () => handleCreateRoom({ preventDefault: () => {} } as any)}
                   >
-                    {loading ? "Creating..." : "Create Room"}
-                  </button>
+                    <div className="flex items-center justify-center h-full">
+                      <span 
+                        className="text-white text-xl font-light"
+                        style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
+                      >
+                        {loading ? "Creating..." : "Create Room"}
+                      </span>
+                    </div>
+                  </GlassSurface>
                 </form>
               </div>
             ) : (
               <div>
-                <h3 className="text-xl font-semibold mb-4">Join an Escrow Room</h3>
+                <h3 className="text-2xl text-white mb-6 font-light" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                  Join an Escrow Room
+                </h3>
                 <form onSubmit={handleJoinRoom} className="mb-6">
-                  <div className="mb-4">
+                  <div className="mb-6">
                     <label
                       htmlFor="roomPhrase"
-                      className="block text-sm font-medium text-gray-300 mb-2"
+                      className="block text-xl text-gray-300 mb-4 font-light"
+                      style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
                     >
                       4-Word Room Phrase
                     </label>
@@ -163,53 +206,82 @@ const Dashboard = () => {
                       type="text"
                       value={roomPhrase}
                       onChange={(e) => setRoomPhrase(e.target.value)}
-                      className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md"
+                      className="w-full max-w-md p-4 text-xl text-center bg-white/5 backdrop-blur-sm border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:border-white/60 focus:bg-white/10 focus:ring-4 focus:ring-white/10 transition-all duration-300"
+                      style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif', fontWeight: '300' }}
                       placeholder="word-word-word-word"
                       required
                     />
                   </div>
-                  <button
-                    type="submit"
-                    className="w-full py-2 px-4 bg-cyan-600 hover:bg-cyan-700 rounded-md font-semibold transition"
+                  <GlassSurface
+                    width={180}
+                    height={60}
+                    borderRadius={30}
+                    brightness={60}
+                    opacity={0.9}
+                    className="cursor-pointer hover:brightness-80 hover:scale-105 transition-all duration-300"
+                    onClick={() => handleJoinRoom({ preventDefault: () => {} } as any)}
                   >
-                    Join Room
-                  </button>
+                    <div className="flex items-center justify-center h-full">
+                      <span 
+                        className="text-white text-xl font-light"
+                        style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
+                      >
+                        Join Room
+                      </span>
+                    </div>
+                  </GlassSurface>
                 </form>
 
                 {/* Available Rooms */}
                 <div>
                   <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-lg font-semibold">Available Rooms</h4>
-                    <button
-                      onClick={fetchAvailableRooms}
-                      disabled={roomsLoading}
-                      className="text-cyan-400 hover:text-cyan-300 text-sm disabled:opacity-50"
+                    <h4 className="text-xl text-white" style={{ fontFamily: 'Times New Roman, serif' }}>
+                      Available Rooms
+                    </h4>
+                    <GlassSurface
+                      width={100}
+                      height={40}
+                      borderRadius={20}
+                      brightness={roomsLoading ? 30 : 50}
+                      opacity={roomsLoading ? 0.6 : 0.8}
+                      className={`cursor-pointer transition-all duration-300 ${
+                        roomsLoading ? 'cursor-not-allowed' : 'hover:brightness-70'
+                      }`}
+                      onClick={roomsLoading ? undefined : fetchAvailableRooms}
                     >
-                      {roomsLoading ? "Loading..." : "Refresh"}
-                    </button>
+                      <div className="flex items-center justify-center h-full">
+                        <span 
+                          className="text-white text-sm"
+                          style={{ fontFamily: 'Brush Script MT, cursive, serif' }}
+                        >
+                          {roomsLoading ? "Loading..." : "Refresh"}
+                        </span>
+                      </div>
+                    </GlassSurface>
                   </div>
                   
                   {roomsLoading ? (
-                    <p className="text-gray-400">Loading rooms...</p>
+                    <p className="text-gray-300 text-xl" style={{ fontFamily: 'Times New Roman, serif' }}>
+                      Loading rooms...
+                    </p>
                   ) : availableRooms.length > 0 ? (
                     <div className="space-y-3 max-h-64 overflow-y-auto">
                       {availableRooms.map((room) => (
                         <div
                           key={room.room_phrase}
-                          className="bg-gray-700 p-3 rounded-md hover:bg-gray-600 transition cursor-pointer"
+                          className="cursor-pointer p-4 border border-white/30 hover:border-white hover:bg-white/10 transition-all duration-300"
                           onClick={() => handleJoinRoomById(room.room_phrase)}
                         >
                           <div className="flex justify-between items-center">
                             <div>
-                              <p className="font-mono text-cyan-300">{room.room_phrase}</p>
-                              <p className="text-sm text-gray-400">
+                              <p className="font-mono text-cyan-300 text-lg">{room.room_phrase}</p>
+                              <p className="text-gray-300 text-lg" style={{ fontFamily: 'Times New Roman, serif' }}>
                                 Amount: ${room.amount?.toFixed(2)}
                               </p>
                             </div>
                             <div className="text-right">
-                              <p className="text-sm text-gray-300">{room.status}</p>
-                              <p className="text-xs text-gray-500">
-                                {room.description ? "Has description" : "No description"}
+                              <p className="text-white text-lg" style={{ fontFamily: 'Times New Roman, serif' }}>
+                                {room.status}
                               </p>
                             </div>
                           </div>
@@ -217,17 +289,20 @@ const Dashboard = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-400">No available rooms found.</p>
+                    <p className="text-gray-300 text-xl" style={{ fontFamily: 'Times New Roman, serif' }}>
+                      No available rooms found.
+                    </p>
                   )}
                 </div>
               </div>
             )}
+            </div>
           </div>
-        </div>
 
-        {/* Sidebar */}
-        <div className="lg:col-span-1">
-          <WalletDisplay />
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            <WalletDisplay />
+          </div>
         </div>
       </div>
     </div>
