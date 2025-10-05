@@ -45,9 +45,9 @@ class Room(Base):
     buyer_public_key = Column(String, nullable=True)
     seller_public_key = Column(String, nullable=True)
     ai_public_key = Column(String, nullable=True)
-
+    private_key = Column(String, nullable=True)
     # Cryptographic shares
-    shares = Column(JSON)
+    contract = Column(JSON, nullable=True)
 
     # Evidence
     evidence_submitted = Column(JSON)

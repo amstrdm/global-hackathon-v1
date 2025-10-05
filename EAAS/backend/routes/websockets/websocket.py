@@ -28,6 +28,8 @@ ACTION_DISPATCHER = {
     "edit_description": event_handler.handle_edit_description,
     "confirm_seller_ready": event_handler.handle_confirm_seller_ready,
     "buyer_lock_funds": event_handler.handle_lock_funds,
+    "product_delivered": event_handler.handle_confirm_product_delivered,
+    "transaction_successfull": event_handler.handle_transaction_successfull,
 }
 
 
@@ -100,6 +102,7 @@ async def websocket_endpoint(
     username = user.username
 
     try:
+        print(room_to_dict(room))
         await websocket.send_json(
             {"type": "connected", "room": room_to_dict(room), "user_id": user_id}
         )
@@ -124,6 +127,7 @@ async def websocket_endpoint(
 
                 handler = ACTION_DISPATCHER.get(message_type)
                 if handler:
+                    db.refresh(room)
                     await handler(room, user, data, db)
                 else:
                     await websocket.close(

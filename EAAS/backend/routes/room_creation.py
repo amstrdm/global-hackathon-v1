@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from utils.logging_config import get_logger
 
+from .utils.smart_contract import CryptoUtils
 from .utils.utils import keccak256_with_stdlib, room_to_dict
 
 logger = get_logger()
@@ -70,11 +71,16 @@ def create_room(room_data: RoomCreate, user_id: str, db: Session = Depends(get_d
     room_phrase = generate_room_phrase()
     escrow_address = keccak256_with_stdlib()
 
+    crypto = CryptoUtils()
+    ai_private, ai_public = crypto.generate_keypair()
+
     room = Room(
         room_phrase=room_phrase,
         escrow_address=escrow_address,
         seller_id=user.id,
         seller_public_key=user.public_key,
+        ai_public_key=str(ai_public),
+        private_key=str(ai_private),
         amount=room_data.amount,
         status="WAITING_FOR_BUYER",
         created_at=datetime.now(),
