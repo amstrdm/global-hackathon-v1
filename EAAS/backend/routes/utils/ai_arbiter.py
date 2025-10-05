@@ -15,7 +15,7 @@ project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
 env_path = os.path.join(project_root, ".env")
 load_dotenv(env_path)
 
-client = OpenAI()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 def encode_image(image_path):
