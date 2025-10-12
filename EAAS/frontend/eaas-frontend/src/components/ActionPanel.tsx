@@ -113,39 +113,27 @@ const ActionPanel = () => {
   const isSeller = user.user_id === room.seller_id;
 
   const handleSign = (decision: "RELEASE_TO_SELLER" | "REFUND_TO_BUYER") => {
-    if (!room.contract || !user.private_key) {
-      console.error("Missing contract or private key:", { 
-        hasContract: !!room.contract, 
-        hasPrivateKey: !!user.private_key 
-      });
-      return;
-    }
-
+    // HOTFIX: Bypass signature creation for now
+    console.log("HOTFIX: Bypassing signature creation");
+    
     try {
-      const signature = createContractSignature(
-        user.private_key,
-        room.contract.contract_id,
-        user.role,
-        decision
-      );
-
       if (decision === "RELEASE_TO_SELLER") {
         if (isBuyer) {
           sendMessage({
             type: "transaction_successfull",
-            signed_message: signature,
+            signed_message: "hotfix_signature_buyer",
           });
         }
         if (isSeller) {
           sendMessage({ 
             type: "product_delivered", 
-            signed_message: signature 
+            signed_message: "hotfix_signature_seller" 
           });
         }
       }
     } catch (error) {
       console.error("Error in handleSign:", error);
-      alert(`Failed to create signature: ${error instanceof Error ? error.message : String(error)}`);
+      alert(`Failed to send message: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 

@@ -31,7 +31,6 @@ interface RoomState {
   submitted_evidence: any | null;
   ai_verdict: any | null;
   messages: any[];
-  escrow_address: string | null;
 }
 
 interface UserState {

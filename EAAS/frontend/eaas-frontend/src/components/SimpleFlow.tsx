@@ -4,6 +4,7 @@ import { useUserStore } from '../store/useStore';
 import { registerUser } from '../api/api';
 import { generateKeyPair } from '../lib/crypto';
 import AnimatedBackground from './AnimatedBackground';
+import GlassSurface from './GlassSurface';
 
 type Step = 'welcome' | 'username' | 'role' | 'room' | 'complete';
 
@@ -82,7 +83,7 @@ const SimpleFlow: React.FC = () => {
       setError('');
       
       try {
-        const { publicKey, publicKeyHex, privateKeyHex } = generateKeyPair();
+        const { publicKey, privateKey, publicKeyHex, privateKeyHex } = generateKeyPair();
         const response = await registerUser(
           flowData.username,
           flowData.role,
@@ -262,7 +263,7 @@ const SimpleFlow: React.FC = () => {
                    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
                  }}
                >
-                 {loading ? 'Loading...' : 'Continue'}
+                 Continue
                </button>
              </div>
            )}

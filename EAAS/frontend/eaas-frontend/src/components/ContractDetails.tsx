@@ -1,3 +1,4 @@
+import React from "react";
 import { useRoomStore } from "../store/useStore";
 
 const ContractDetails = () => {

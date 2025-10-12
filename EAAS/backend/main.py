@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import register, room_creation
+from routes import register, room_creation, rooms, wallet, evidence
 from routes.websockets import websocket
 from utils.logging_config import get_logger
 
@@ -42,5 +42,14 @@ logger.debug("Registered websocket router at /api")
 
 app.include_router(room_creation.router, prefix="/api")
 logger.debug("Registered room_creation router at /api")
+
+app.include_router(rooms.router, prefix="/api")
+logger.debug("Registered rooms router at /api")
+
+app.include_router(wallet.router, prefix="/api")
+logger.debug("Registered wallet router at /api")
+
+app.include_router(evidence.router, prefix="/api")
+logger.debug("Registered evidence router at /api")
 
 logger.info("Application startup completed successfully")

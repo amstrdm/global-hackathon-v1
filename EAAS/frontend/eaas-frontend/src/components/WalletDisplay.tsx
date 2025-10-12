@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useUserStore } from "../store/useStore";
 import { getWallet } from "../api/api";
 

@@ -7,7 +7,7 @@ from database.models import Room
 def room_to_dict(room: Room) -> dict:
     """Convert Room model to dict"""
     return {
-        "room_code": room.room_phrase,
+        "room_phrase": room.room_phrase,
         "seller_id": room.seller_id,
         "buyer_id": room.buyer_id,
         "seller_public_key": str(room.seller_public_key),
@@ -17,6 +17,9 @@ def room_to_dict(room: Room) -> dict:
         "description": room.description,
         "required_evidence": room.required_evidence,
         "status": room.status,
+        "dispute_status": room.dispute_status,
+        "submitted_evidence": room.submitted_evidence,
+        "ai_verdict": room.ai_verdict,
         "transaction_id": room.transaction_id,
         "escrow_address": room.escrow_address,
         "evidence_submitted": room.submitted_evidence or [],
