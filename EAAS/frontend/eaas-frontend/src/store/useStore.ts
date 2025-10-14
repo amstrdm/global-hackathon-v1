@@ -7,7 +7,6 @@ interface User {
   username: string;
   role: "BUYER" | "SELLER";
   public_key: string; // Hex format for localStorage
-  private_key: string; // Hex format for localStorage
   private_key_obj?: any; // Raw key object for signing (not persisted)
 }
 
@@ -27,6 +26,7 @@ interface RoomState {
   status: string;
   contract: any | null;
   dispute_status: string | null;
+  escrow_address: string;
   required_evidence: string[] | null;
   submitted_evidence: any | null;
   ai_verdict: any | null;
