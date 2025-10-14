@@ -193,6 +193,19 @@ async def websocket_endpoint(
             )
             return
 
+        # Before attempting to connect, check for and remove any stale connections
+        # for this user in this room. This handles fast page reloads.
+        is_participant = (user.id == room.buyer_id) or (user.id == room.seller_id)
+        if is_participant:
+            current_user_ids_in_room = await manager.get_connections_in_room(
+                room_phrase
+            )
+            if user_id in current_user_ids_in_room:
+                logger.info(
+                    f"Reconnection attempt by user {user_id}. Clearing stale session."
+                )
+                await manager.remove_user_from_room(room_phrase, user_id)
+
         # Connect to Redis manager
         try:
             if not await manager.connect(websocket, room_phrase, user_id):

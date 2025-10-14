@@ -110,6 +110,25 @@ class RedisConnectionManager:
         channel = await self._get_room_channel_name(room_phrase)
         await redis_client.publish(channel, json.dumps(message))
 
+    async def get_connections_in_room(self, room_phrase: str) -> list[str]:
+        """
+        Gets a list of user_ids currently in the room's occupancy set.
+        """
+        occupancy_key = await self._get_room_occupancy_key(room_phrase)
+        user_ids = await redis_client.smembers(occupancy_key)
+        return list(user_ids)
+
+    async def remove_user_from_room(self, room_phrase: str, user_id: str):
+        """
+        Forcibly removes a specific user_id from a room's occupancy set in Redis.
+        This is used to clean up stale connections.
+        """
+        occupancy_key = await self._get_room_occupancy_key(room_phrase)
+        await redis_client.srem(occupancy_key, user_id)
+        logger.info(
+            f"Removed stale connection for user {user_id} from room {room_phrase}"
+        )
+
     async def _pubsub_reader(self, channel: str, room_phrase: str):
         """The background task that listens to Redis and forwards messages."""
         async with redis_client.pubsub() as pubsub:
@@ -126,7 +145,9 @@ class RedisConnectionManager:
                             try:
                                 await connection.send_json(data)
                             except RuntimeError as e:
-                                logger.warning(f"Failed to send to a websocket in room {room_phrase}; it may be closed: {e}")
+                                logger.warning(
+                                    f"Failed to send to a websocket in room {room_phrase}; it may be closed: {e}"
+                                )
                                 # The main websocket_endpoint's finally block is responsible for cleanup.
                                 # We just continue to the next connection.
                                 pass
