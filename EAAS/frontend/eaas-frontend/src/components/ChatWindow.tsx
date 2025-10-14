@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useRoomStore, useUserStore } from "../store/useStore";
+import { useRoomStore, useUserStore, useErrorStore } from "../store/useStore";
 import { sendMessage } from "../api/websocket";
 
 const ChatWindow = () => {
   const { room } = useRoomStore();
   const { user } = useUserStore();
+  const { addError } = useErrorStore();
   const [message, setMessage] = useState("");
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
@@ -17,6 +18,14 @@ const ChatWindow = () => {
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim()) {
+      if (!room) {
+        addError("Not connected to any room", "error");
+        return;
+      }
+      if (!user) {
+        addError("User not authenticated", "error");
+        return;
+      }
       sendMessage({ type: "chat_message", message });
       setMessage("");
     }
@@ -34,6 +43,8 @@ const ChatWindow = () => {
             className={`mb-3 p-2 rounded-lg max-w-xs ${
               msg.type === "admin_message"
                 ? "bg-blue-900 text-center mx-auto text-sm"
+                : msg.type === "error"
+                ? "bg-red-900 text-center mx-auto text-sm border-l-4 border-red-500"
                 : msg.sender_id === user?.user_id
                 ? "bg-cyan-800 ml-auto"
                 : "bg-gray-700 mr-auto"

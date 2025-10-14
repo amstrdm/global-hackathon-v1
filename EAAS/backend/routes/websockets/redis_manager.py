@@ -125,18 +125,17 @@ class RedisConnectionManager:
                         for connection in connections:
                             try:
                                 await connection.send_json(data)
-                            except RuntimeError:
-                                print(
-                                    f"Failed to send to a websocket in room {room_phrase}; it may be closed."
-                                )
+                            except RuntimeError as e:
+                                logger.warning(f"Failed to send to a websocket in room {room_phrase}; it may be closed: {e}")
                                 # The main websocket_endpoint's finally block is responsible for cleanup.
                                 # We just continue to the next connection.
                                 pass
 
                 except asyncio.CancelledError:
                     # Task was cancelled, exit the loop
+                    logger.debug(f"Pubsub reader task cancelled for room {room_phrase}")
                     break
                 except Exception as e:
-                    print(f"Error in pubsub reader for room {room_phrase}: {e}")
+                    logger.error(f"Error in pubsub reader for room {room_phrase}: {e}")
                     # In production, you might want more robust error handling
                     break

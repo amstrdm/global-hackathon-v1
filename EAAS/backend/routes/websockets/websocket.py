@@ -13,12 +13,14 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
+from utils.logging_config import get_logger
 
 from ..utils.utils import room_to_dict
 from . import event_handler
 from .handle_connections import ConnectionManager
 from .redis_manager import RedisConnectionManager
 
+logger = get_logger("routes.websockets.websocket")
 router = APIRouter()
 
 ACTION_DISPATCHER = {
@@ -35,159 +37,313 @@ ACTION_DISPATCHER = {
 }
 
 
+async def send_websocket_error(websocket: WebSocket, error_code: int, reason: str, log_message: str = None):
+    """Helper function to send error and close websocket with proper logging"""
+    if log_message:
+        logger.warning(log_message)
+    try:
+        await websocket.close(code=error_code, reason=reason)
+    except Exception as e:
+        logger.error(f"Error closing websocket: {e}")
+
+
 @router.websocket("/ws/{room_phrase}/{user_id}")
 async def websocket_endpoint(
     websocket: WebSocket, room_phrase: str, user_id: str, db: Session = Depends(get_db)
 ):
-    """WebSocket connection for real time updates"""
+    """WebSocket connection for real time updates with comprehensive error handling and logging"""
+    logger.info(f"WebSocket connection attempt - Room: {room_phrase}, User: {user_id}")
+    
     manager = RedisConnectionManager()
     is_fully_connected = False
-
-    await websocket.accept()
-
-    room = db.query(Room).filter_by(room_phrase=room_phrase).first()
-    user = db.query(User).filter_by(id=user_id).first()
-    wallet = db.query(Wallet).filter_by(user_id=user_id).first()
-
-    if not room:
-        await websocket.close(
-            code=status.WS_1008_POLICY_VIOLATION, reason="Room not found"
-        )
-        return
-
-    if not user:
-        await websocket.close(
-            code=status.WS_1008_POLICY_VIOLATION, reason="User not found"
-        )
-        return
-
-    if not wallet:
-        await websocket.close(
-            code=status.WS_1008_POLICY_VIOLATION,
-            reason="No wallet associated with User",
-        )
-        return
-
-    print(user.role)
-
-    if user.role == "BUYER":
-        if room.buyer_id is None:
-            if room.amount > wallet.balance:
-                await websocket.close(
-                    code=status.WS_1008_POLICY_VIOLATION,
-                    reason="Your Balance is too low to partake in this transaction",
-                )
-                return
-            room.buyer_id = user.id
-            room.buyer_public_key = user.public_key
-            room.status = "AWAITING_DESCRIPTION"
-            db.commit()
-            db.refresh(room)
-        elif room.buyer_id != user.id:
-            await websocket.close(
-                code=status.WS_1008_POLICY_VIOLATION,
-                reason="Room already has a buyer",
-            )
-            return
-
-    elif user.role == "SELLER":
-        if room.seller_id != user.id:
-            await websocket.close(
-                code=status.WS_1008_POLICY_VIOLATION,
-                reason="You are not the seller of this room",
-            )
-            return
-    else:
-        await websocket.close(
-            code=status.WS_1008_POLICY_VIOLATION, reason="Invalid user role"
-        )
-        return
-
-    if not await manager.connect(websocket, room_phrase, user_id):
-        await websocket.close(
-            code=status.WS_1008_POLICY_VIOLATION, reason="Room is full"
-        )
-
-    username = user.username
+    user = None
+    room = None
+    wallet = None
 
     try:
-        print(room_to_dict(room))
-        await websocket.send_json(
-            {"type": "connected", "room": room_to_dict(room), "user_id": user_id}
-        )
+        # Validate input parameters
+        if not room_phrase or not room_phrase.strip():
+            await send_websocket_error(
+                websocket, 
+                status.WS_1008_POLICY_VIOLATION, 
+                "Invalid room phrase",
+                "Empty room phrase provided for websocket connection"
+            )
+            return
 
-        join_message = {
-            "type": "admin_message",
-            "username": username,
-            "message": f"{user.role or 'User'} '{username}' joined the room",
-            "timestamp": datetime.now().isoformat(),
-        }
-        room.messages.append(join_message)
-        flag_modified(room, "messages")
-        db.commit()
-        await manager.broadcast_to_room(room_phrase, join_message)
+        if not user_id or not user_id.strip():
+            await send_websocket_error(
+                websocket,
+                status.WS_1008_POLICY_VIOLATION,
+                "Invalid user ID",
+                "Empty user ID provided for websocket connection"
+            )
+            return
+
+        # Accept the websocket connection
+        await websocket.accept()
+        logger.debug(f"WebSocket connection accepted for user {user_id} in room {room_phrase}")
+
+        # Fetch required data from database
+        try:
+            room = db.query(Room).filter_by(room_phrase=room_phrase).first()
+            user = db.query(User).filter_by(id=user_id).first()
+            wallet = db.query(Wallet).filter_by(user_id=user_id).first()
+        except Exception as e:
+            logger.error(f"Database error during websocket connection: {e}")
+            await send_websocket_error(
+                websocket,
+                status.WS_1011_INTERNAL_ERROR,
+                "Database error",
+                f"Database error during websocket connection: {e}"
+            )
+            return
+
+        # Validate room exists
+        if not room:
+            await send_websocket_error(
+                websocket,
+                status.WS_1008_POLICY_VIOLATION,
+                "Room not found",
+                f"Room not found: {room_phrase}"
+            )
+            return
+
+        # Validate user exists
+        if not user:
+            await send_websocket_error(
+                websocket,
+                status.WS_1008_POLICY_VIOLATION,
+                "User not found",
+                f"User not found: {user_id}"
+            )
+            return
+
+        # Validate wallet exists
+        if not wallet:
+            await send_websocket_error(
+                websocket,
+                status.WS_1008_POLICY_VIOLATION,
+                "No wallet found",
+                f"No wallet found for user: {user_id}"
+            )
+            return
+
+        logger.debug(f"User {user.username} ({user.role}) attempting to connect to room {room_phrase}")
+
+        # Role-based authorization and room joining logic
+        if user.role == "BUYER":
+            if room.buyer_id is None:
+                # New buyer joining
+                if room.amount > wallet.balance:
+                    await send_websocket_error(
+                        websocket,
+                        status.WS_1008_POLICY_VIOLATION,
+                        "Insufficient balance",
+                        f"Buyer {user_id} has insufficient balance: {wallet.balance} < {room.amount}"
+                    )
+                    return
+                
+                try:
+                    room.buyer_id = user.id
+                    room.buyer_public_key = user.public_key
+                    room.status = "AWAITING_DESCRIPTION"
+                    db.commit()
+                    db.refresh(room)
+                    logger.info(f"Buyer {user.username} joined room {room_phrase}")
+                except Exception as e:
+                    logger.error(f"Error updating room for new buyer: {e}")
+                    await send_websocket_error(
+                        websocket,
+                        status.WS_1011_INTERNAL_ERROR,
+                        "Database error",
+                        f"Error updating room for new buyer: {e}"
+                    )
+                    return
+                    
+            elif room.buyer_id != user.id:
+                await send_websocket_error(
+                    websocket,
+                    status.WS_1008_POLICY_VIOLATION,
+                    "Room occupied",
+                    f"Buyer {user_id} attempted to join occupied room {room_phrase} (buyer: {room.buyer_id})"
+                )
+                return
+
+        elif user.role == "SELLER":
+            if room.seller_id != user.id:
+                await send_websocket_error(
+                    websocket,
+                    status.WS_1008_POLICY_VIOLATION,
+                    "Unauthorized seller",
+                    f"Seller {user_id} attempted to join room {room_phrase} owned by {room.seller_id}"
+                )
+                return
+        else:
+            await send_websocket_error(
+                websocket,
+                status.WS_1008_POLICY_VIOLATION,
+                "Invalid role",
+                f"Invalid user role: {user.role}"
+            )
+            return
+
+        # Connect to Redis manager
+        try:
+            if not await manager.connect(websocket, room_phrase, user_id):
+                await send_websocket_error(
+                    websocket,
+                    status.WS_1008_POLICY_VIOLATION,
+                    "Room full",
+                    f"Room {room_phrase} is full, cannot accept user {user_id}"
+                )
+                return
+        except Exception as e:
+            logger.error(f"Redis connection error: {e}")
+            await send_websocket_error(
+                websocket,
+                status.WS_1011_INTERNAL_ERROR,
+                "Connection error",
+                f"Redis connection error: {e}"
+            )
+            return
+
+        # Send initial connection data
+        try:
+            room_data = room_to_dict(room)
+            await websocket.send_json(
+                {"type": "connected", "room": room_data, "user_id": user_id}
+            )
+            logger.debug(f"Sent connection data to user {user_id}")
+        except Exception as e:
+            logger.error(f"Error sending connection data: {e}")
+            await send_websocket_error(
+                websocket,
+                status.WS_1011_INTERNAL_ERROR,
+                "Connection error",
+                f"Error sending connection data: {e}"
+            )
+            return
+
+        # Create and broadcast join message
+        try:
+            join_message = {
+                "type": "admin_message",
+                "username": user.username,
+                "message": f"{user.role or 'User'} '{user.username}' joined the room",
+                "timestamp": datetime.now().isoformat(),
+            }
+            room.messages.append(join_message)
+            flag_modified(room, "messages")
+            db.commit()
+            await manager.broadcast_to_room(room_phrase, join_message)
+            logger.info(f"User {user.username} joined room {room_phrase}")
+        except Exception as e:
+            logger.error(f"Error broadcasting join message: {e}")
+            # Don't fail the connection for this, just log it
 
         is_fully_connected = True
 
+        # Main message handling loop
         while True:
             try:
                 data = await websocket.receive_json()
                 message_type = data.get("type")
+                logger.debug(f"Received message type '{message_type}' from user {user_id}")
 
                 handler = ACTION_DISPATCHER.get(message_type)
                 if handler:
-                    db.refresh(room)
-                    await handler(room, user, data, db)
+                    try:
+                        db.refresh(room)
+                        await handler(room, user, data, db)
+                        logger.debug(f"Successfully handled {message_type} from user {user_id}")
+                    except Exception as e:
+                        logger.error(f"Error handling {message_type} from user {user_id}: {e}")
+                        # Send error to client
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": f"Error processing {message_type}: {str(e)}",
+                            "original_type": message_type
+                        })
                 else:
-                    await websocket.close(
-                        code=status.WS_1008_POLICY_VIOLATION,
-                        reason="Unknown message type",
-                    )
-                    return
+                    logger.warning(f"Unknown message type '{message_type}' from user {user_id}")
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": f"Unknown message type: {message_type}",
+                        "original_type": message_type
+                    })
 
-            except (WebSocketDisconnect, RuntimeError) as e:
-                if isinstance(e, WebSocketDisconnect) or 'Cannot call "receive"' in str(
-                    e
-                ):
-                    print(f"Client {user_id} disconnected from room {room_phrase}.")
+            except WebSocketDisconnect:
+                logger.info(f"User {user_id} disconnected from room {room_phrase}")
+                break
+                
+            except RuntimeError as e:
+                if 'Cannot call "receive"' in str(e):
+                    logger.info(f"WebSocket receive error for user {user_id}: {e}")
                     break
                 else:
-                    # If it's a different RuntimeError, re-raise it.
+                    logger.error(f"Unexpected RuntimeError for user {user_id}: {e}")
                     raise e
 
-            except (json.JSONDecodeError, KeyError):
-                # Ignore malformed messages and continue listening.
-                print(f"Received malformed JSON from {user_id}.")
+            except json.JSONDecodeError as e:
+                logger.warning(f"Malformed JSON received from user {user_id}: {e}")
+                await websocket.send_json({
+                    "type": "error",
+                    "message": "Invalid JSON format"
+                })
+                continue
+
+            except KeyError as e:
+                logger.warning(f"Missing key in message from user {user_id}: {e}")
+                await websocket.send_json({
+                    "type": "error",
+                    "message": f"Missing required field: {str(e)}"
+                })
                 continue
 
             except Exception as e:
-                # Handle other unexpected errors during message processing.
-                print(
-                    f"An unexpected error occurred while processing message in room {room_phrase}: {e}"
-                )
-                # Optionally, notify the client about the specific error.
-                await websocket.send_json(
-                    {"type": "error", "message": "An internal server error occurred."}
-                )
+                logger.error(f"Unexpected error processing message from user {user_id}: {e}")
+                await websocket.send_json({
+                    "type": "error",
+                    "message": "An internal server error occurred"
+                })
                 continue
 
-    finally:
-        # This logic now runs only once upon disconnection.
-        if is_fully_connected and user and room:
-            leave_message = {
-                "type": "admin_message",
-                "username": username,
-                "message": f"{user.role} {username} left the room",
-                "timestamp": datetime.now().isoformat(),
-            }
-            # Use a fresh session or refresh the object in case of long-running connections
-            db.refresh(room)
-            room.messages.append(leave_message)
-            flag_modified(room, "messages")
-            db.commit()
-            await manager.broadcast_to_room(room_phrase, leave_message)
+    except Exception as e:
+        logger.error(f"Critical error in websocket endpoint for user {user_id}: {e}")
+        try:
+            await websocket.close(code=status.WS_1011_INTERNAL_ERROR, reason="Internal server error")
+        except:
+            pass
 
-        # This is the final cleanup step.
-        if user:
-            await manager.disconnect(websocket, room_phrase, str(user.id))
-            print(f"Successfully cleaned up connection for user {user.id}")
+    finally:
+        # Cleanup logic
+        try:
+            if is_fully_connected and user and room:
+                leave_message = {
+                    "type": "admin_message",
+                    "username": user.username,
+                    "message": f"{user.role} {user.username} left the room",
+                    "timestamp": datetime.now().isoformat(),
+                }
+                
+                try:
+                    db.refresh(room)
+                    room.messages.append(leave_message)
+                    flag_modified(room, "messages")
+                    db.commit()
+                    await manager.broadcast_to_room(room_phrase, leave_message)
+                    logger.info(f"User {user.username} left room {room_phrase}")
+                except Exception as e:
+                    logger.error(f"Error broadcasting leave message: {e}")
+
+            # Disconnect from Redis manager
+            if user:
+                try:
+                    await manager.disconnect(websocket, room_phrase, str(user.id))
+                    logger.debug(f"Cleaned up connection for user {user.id}")
+                except Exception as e:
+                    logger.error(f"Error during cleanup for user {user.id}: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Error during websocket cleanup: {e}")

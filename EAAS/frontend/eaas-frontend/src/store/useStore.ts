@@ -41,11 +41,25 @@ interface UserState {
   logout: () => void;
 }
 
+interface ErrorState {
+  message: string;
+  type: "error" | "warning" | "success" | "info";
+  timestamp: number;
+  id: string;
+}
+
 interface RoomStore {
   room: RoomState | null;
   setRoom: (room: RoomState | null) => void;
   addMessage: (message: any) => void;
   updateState: (updates: Partial<RoomState>) => void;
+}
+
+interface ErrorStore {
+  errors: ErrorState[];
+  addError: (message: string, type?: ErrorState["type"]) => void;
+  removeError: (id: string) => void;
+  clearErrors: () => void;
 }
 
 export const useUserStore = create<UserState>()(
@@ -76,4 +90,25 @@ export const useRoomStore = create<RoomStore>((set) => ({
     set((state) => ({
       room: state.room ? { ...state.room, ...updates } : null,
     })),
+}));
+
+export const useErrorStore = create<ErrorStore>((set) => ({
+  errors: [],
+  addError: (message, type = "error") =>
+    set((state) => ({
+      errors: [
+        ...state.errors,
+        {
+          message,
+          type,
+          timestamp: Date.now(),
+          id: Math.random().toString(36).substr(2, 9),
+        },
+      ],
+    })),
+  removeError: (id) =>
+    set((state) => ({
+      errors: state.errors.filter((error) => error.id !== id),
+    })),
+  clearErrors: () => set({ errors: [] }),
 }));

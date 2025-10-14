@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import SimpleFlow from "./components/SimpleFlow";
 import Dashboard from "./pages/Dashboard";
 import Room from "./pages/Room";
+import ErrorDisplay from "./components/ErrorDisplay";
 import { useUserStore } from "./store/useStore";
 
 function App() {
@@ -9,6 +10,7 @@ function App() {
 
   return (
     <div className="min-h-screen">
+      <ErrorDisplay />
       <Routes>
         <Route
           path="/"

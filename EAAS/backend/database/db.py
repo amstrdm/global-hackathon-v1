@@ -24,8 +24,12 @@ def init_db():
     """
     Creates all Tables if they don't exist.
     """
-
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created/verified successfully")
+    except Exception as e:
+        logger.error(f"Failed to create database tables: {e}")
+        raise
 
 
 def get_db():
@@ -59,12 +63,17 @@ def get_db():
 
 @contextmanager
 def get_session():
+    """Context manager for database sessions with proper error handling and logging"""
     db = SessionLocal()
     try:
+        logger.debug("Database session started")
         yield db
         db.commit()
-    except:
+        logger.debug("Database session committed successfully")
+    except Exception as e:
+        logger.error(f"Database session error, rolling back: {e}")
         db.rollback()
         raise
     finally:
         db.close()
+        logger.debug("Database session closed")
