@@ -17,7 +17,6 @@ from utils.logging_config import get_logger
 
 from ..utils.utils import room_to_dict
 from . import event_handler
-from .handle_connections import ConnectionManager
 from .redis_manager import RedisConnectionManager
 
 logger = get_logger("routes.websockets.websocket")
@@ -37,7 +36,9 @@ ACTION_DISPATCHER = {
 }
 
 
-async def send_websocket_error(websocket: WebSocket, error_code: int, reason: str, log_message: str = None):
+async def send_websocket_error(
+    websocket: WebSocket, error_code: int, reason: str, log_message: str = None
+):
     """Helper function to send error and close websocket with proper logging"""
     if log_message:
         logger.warning(log_message)
@@ -53,7 +54,7 @@ async def websocket_endpoint(
 ):
     """WebSocket connection for real time updates with comprehensive error handling and logging"""
     logger.info(f"WebSocket connection attempt - Room: {room_phrase}, User: {user_id}")
-    
+
     manager = RedisConnectionManager()
     is_fully_connected = False
     user = None
@@ -64,10 +65,10 @@ async def websocket_endpoint(
         # Validate input parameters
         if not room_phrase or not room_phrase.strip():
             await send_websocket_error(
-                websocket, 
-                status.WS_1008_POLICY_VIOLATION, 
+                websocket,
+                status.WS_1008_POLICY_VIOLATION,
                 "Invalid room phrase",
-                "Empty room phrase provided for websocket connection"
+                "Empty room phrase provided for websocket connection",
             )
             return
 
@@ -76,13 +77,15 @@ async def websocket_endpoint(
                 websocket,
                 status.WS_1008_POLICY_VIOLATION,
                 "Invalid user ID",
-                "Empty user ID provided for websocket connection"
+                "Empty user ID provided for websocket connection",
             )
             return
 
         # Accept the websocket connection
         await websocket.accept()
-        logger.debug(f"WebSocket connection accepted for user {user_id} in room {room_phrase}")
+        logger.debug(
+            f"WebSocket connection accepted for user {user_id} in room {room_phrase}"
+        )
 
         # Fetch required data from database
         try:
@@ -95,7 +98,7 @@ async def websocket_endpoint(
                 websocket,
                 status.WS_1011_INTERNAL_ERROR,
                 "Database error",
-                f"Database error during websocket connection: {e}"
+                f"Database error during websocket connection: {e}",
             )
             return
 
@@ -105,7 +108,7 @@ async def websocket_endpoint(
                 websocket,
                 status.WS_1008_POLICY_VIOLATION,
                 "Room not found",
-                f"Room not found: {room_phrase}"
+                f"Room not found: {room_phrase}",
             )
             return
 
@@ -115,7 +118,7 @@ async def websocket_endpoint(
                 websocket,
                 status.WS_1008_POLICY_VIOLATION,
                 "User not found",
-                f"User not found: {user_id}"
+                f"User not found: {user_id}",
             )
             return
 
@@ -125,11 +128,13 @@ async def websocket_endpoint(
                 websocket,
                 status.WS_1008_POLICY_VIOLATION,
                 "No wallet found",
-                f"No wallet found for user: {user_id}"
+                f"No wallet found for user: {user_id}",
             )
             return
 
-        logger.debug(f"User {user.username} ({user.role}) attempting to connect to room {room_phrase}")
+        logger.debug(
+            f"User {user.username} ({user.role}) attempting to connect to room {room_phrase}"
+        )
 
         # Role-based authorization and room joining logic
         if user.role == "BUYER":
@@ -140,10 +145,10 @@ async def websocket_endpoint(
                         websocket,
                         status.WS_1008_POLICY_VIOLATION,
                         "Insufficient balance",
-                        f"Buyer {user_id} has insufficient balance: {wallet.balance} < {room.amount}"
+                        f"Buyer {user_id} has insufficient balance: {wallet.balance} < {room.amount}",
                     )
                     return
-                
+
                 try:
                     room.buyer_id = user.id
                     room.buyer_public_key = user.public_key
@@ -157,16 +162,16 @@ async def websocket_endpoint(
                         websocket,
                         status.WS_1011_INTERNAL_ERROR,
                         "Database error",
-                        f"Error updating room for new buyer: {e}"
+                        f"Error updating room for new buyer: {e}",
                     )
                     return
-                    
+
             elif room.buyer_id != user.id:
                 await send_websocket_error(
                     websocket,
                     status.WS_1008_POLICY_VIOLATION,
                     "Room occupied",
-                    f"Buyer {user_id} attempted to join occupied room {room_phrase} (buyer: {room.buyer_id})"
+                    f"Buyer {user_id} attempted to join occupied room {room_phrase} (buyer: {room.buyer_id})",
                 )
                 return
 
@@ -176,7 +181,7 @@ async def websocket_endpoint(
                     websocket,
                     status.WS_1008_POLICY_VIOLATION,
                     "Unauthorized seller",
-                    f"Seller {user_id} attempted to join room {room_phrase} owned by {room.seller_id}"
+                    f"Seller {user_id} attempted to join room {room_phrase} owned by {room.seller_id}",
                 )
                 return
         else:
@@ -184,7 +189,7 @@ async def websocket_endpoint(
                 websocket,
                 status.WS_1008_POLICY_VIOLATION,
                 "Invalid role",
-                f"Invalid user role: {user.role}"
+                f"Invalid user role: {user.role}",
             )
             return
 
@@ -195,7 +200,7 @@ async def websocket_endpoint(
                     websocket,
                     status.WS_1008_POLICY_VIOLATION,
                     "Room full",
-                    f"Room {room_phrase} is full, cannot accept user {user_id}"
+                    f"Room {room_phrase} is full, cannot accept user {user_id}",
                 )
                 return
         except Exception as e:
@@ -204,7 +209,7 @@ async def websocket_endpoint(
                 websocket,
                 status.WS_1011_INTERNAL_ERROR,
                 "Connection error",
-                f"Redis connection error: {e}"
+                f"Redis connection error: {e}",
             )
             return
 
@@ -221,7 +226,7 @@ async def websocket_endpoint(
                 websocket,
                 status.WS_1011_INTERNAL_ERROR,
                 "Connection error",
-                f"Error sending connection data: {e}"
+                f"Error sending connection data: {e}",
             )
             return
 
@@ -249,34 +254,46 @@ async def websocket_endpoint(
             try:
                 data = await websocket.receive_json()
                 message_type = data.get("type")
-                logger.debug(f"Received message type '{message_type}' from user {user_id}")
+                logger.debug(
+                    f"Received message type '{message_type}' from user {user_id}"
+                )
 
                 handler = ACTION_DISPATCHER.get(message_type)
                 if handler:
                     try:
                         db.refresh(room)
                         await handler(room, user, data, db)
-                        logger.debug(f"Successfully handled {message_type} from user {user_id}")
+                        logger.debug(
+                            f"Successfully handled {message_type} from user {user_id}"
+                        )
                     except Exception as e:
-                        logger.error(f"Error handling {message_type} from user {user_id}: {e}")
+                        logger.error(
+                            f"Error handling {message_type} from user {user_id}: {e}"
+                        )
                         # Send error to client
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": f"Error processing {message_type}: {str(e)}",
-                            "original_type": message_type
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "error",
+                                "message": f"Error processing {message_type}: {str(e)}",
+                                "original_type": message_type,
+                            }
+                        )
                 else:
-                    logger.warning(f"Unknown message type '{message_type}' from user {user_id}")
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": f"Unknown message type: {message_type}",
-                        "original_type": message_type
-                    })
+                    logger.warning(
+                        f"Unknown message type '{message_type}' from user {user_id}"
+                    )
+                    await websocket.send_json(
+                        {
+                            "type": "error",
+                            "message": f"Unknown message type: {message_type}",
+                            "original_type": message_type,
+                        }
+                    )
 
             except WebSocketDisconnect:
                 logger.info(f"User {user_id} disconnected from room {room_phrase}")
                 break
-                
+
             except RuntimeError as e:
                 if 'Cannot call "receive"' in str(e):
                     logger.info(f"WebSocket receive error for user {user_id}: {e}")
@@ -287,32 +304,33 @@ async def websocket_endpoint(
 
             except json.JSONDecodeError as e:
                 logger.warning(f"Malformed JSON received from user {user_id}: {e}")
-                await websocket.send_json({
-                    "type": "error",
-                    "message": "Invalid JSON format"
-                })
+                await websocket.send_json(
+                    {"type": "error", "message": "Invalid JSON format"}
+                )
                 continue
 
             except KeyError as e:
                 logger.warning(f"Missing key in message from user {user_id}: {e}")
-                await websocket.send_json({
-                    "type": "error",
-                    "message": f"Missing required field: {str(e)}"
-                })
+                await websocket.send_json(
+                    {"type": "error", "message": f"Missing required field: {str(e)}"}
+                )
                 continue
 
             except Exception as e:
-                logger.error(f"Unexpected error processing message from user {user_id}: {e}")
-                await websocket.send_json({
-                    "type": "error",
-                    "message": "An internal server error occurred"
-                })
+                logger.error(
+                    f"Unexpected error processing message from user {user_id}: {e}"
+                )
+                await websocket.send_json(
+                    {"type": "error", "message": "An internal server error occurred"}
+                )
                 continue
 
     except Exception as e:
         logger.error(f"Critical error in websocket endpoint for user {user_id}: {e}")
         try:
-            await websocket.close(code=status.WS_1011_INTERNAL_ERROR, reason="Internal server error")
+            await websocket.close(
+                code=status.WS_1011_INTERNAL_ERROR, reason="Internal server error"
+            )
         except:
             pass
 
@@ -326,7 +344,7 @@ async def websocket_endpoint(
                     "message": f"{user.role} {user.username} left the room",
                     "timestamp": datetime.now().isoformat(),
                 }
-                
+
                 try:
                     db.refresh(room)
                     room.messages.append(leave_message)
@@ -344,6 +362,6 @@ async def websocket_endpoint(
                     logger.debug(f"Cleaned up connection for user {user.id}")
                 except Exception as e:
                     logger.error(f"Error during cleanup for user {user.id}: {e}")
-                    
+
         except Exception as e:
             logger.error(f"Error during websocket cleanup: {e}")
