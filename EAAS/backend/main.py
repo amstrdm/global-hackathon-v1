@@ -1,16 +1,47 @@
+import sys
+from contextlib import asynccontextmanager
+
+from database.db import init_db
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import register, room_creation, rooms, wallet, evidence
+from routes import evidence, register, room_creation, rooms, wallet
 from routes.websockets import websocket
+from routes.websockets.redis_manager import get_redis_client
 from utils.logging_config import get_logger
 
 # Initialize logger for main application
 logger = get_logger("main")
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Executing application startup events...")
+    try:
+        init_db()
+        logger.info("Database initialized successfully.")
+    except Exception as e:
+        logger.critical(f"Failed to initialize database: {e}")
+        sys.exit(1)  # Exit if DB connection fails
+
+    try:
+        redis_client = await get_redis_client()
+        if not redis_client:
+            raise ConnectionError("Redis client could not be initialized.")
+        logger.info("Redis connection confirmed.")
+    except Exception as e:
+        logger.critical(f"Failed to connect to Redis on startup: {e}")
+        raise  # Exit if Redis connection fails
+
+    logger.info("Application startup completed successfully")
+
+    yield
+
+
 app = FastAPI(
     title="EAAS",
     description="Backend API for Escrow as A service WebAPP",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Log application startup

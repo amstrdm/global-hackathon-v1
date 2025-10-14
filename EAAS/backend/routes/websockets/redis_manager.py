@@ -1,13 +1,53 @@
 import asyncio
 import json
+import os
 from typing import Dict, Set
 
 import redis.asyncio as redis
+from dotenv import load_dotenv
 from fastapi import WebSocket
+from utils.logging_config import get_logger
+
+logger = get_logger("routes.websockets.redis_manager")
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
+env_path = os.path.join(project_root, ".env")
+load_dotenv(env_path)
+
 
 # Establish a connection to the Redis server
-# TODO: This should be configured properly for production (e.g., from environment variables)
-redis_client = redis.from_url("redis://localhost:6379", decode_responses=True)
+REDIS_HOST = os.getenv("REDIS_HOST")
+REDIS_PORT = os.getenv("REDIS_PORT")
+
+if not REDIS_HOST:
+    logger.error("REDIS_HOST environment variable missing")
+    raise
+
+
+if not REDIS_PORT:
+    logger.error("REDIS_PORT environment variable missing")
+    raise
+
+redis_client = None
+
+
+async def get_redis_client():
+    """
+    Returns the existing Redis client instance or creates a new one.
+    """
+    global redis_client
+    if redis_client is None:
+        try:
+            # Use from_url for easier configuration
+            redis_url = f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/0"
+            redis_client = redis.from_url(redis_url, decode_responses=True)
+            await redis_client.ping()
+            logger.info("Successfully connected to Redis.")
+        except Exception as e:
+            logger.error(f"Could not connect to Redis: {e}")
+            redis_client = None  # Ensure client is None on failure
+    return redis_client
 
 
 class RedisConnectionManager:
