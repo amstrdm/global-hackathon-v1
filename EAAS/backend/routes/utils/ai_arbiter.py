@@ -26,7 +26,8 @@ def encode_image(image_path):
 # Placeholder for actual API calls to an LLM provider (e.g., OpenAI)
 async def call_gpt_api(system: str, prompt: str, output_structure: object):
     """Placeholder for a real GPT-4 call. Returns a mock response."""
-    response = client.responses.parse(
+    response = await asyncio.to_thread(
+        client.responses.parse,
         model="gpt-5",
         input=[
             {"role": "system", "content": system},
@@ -54,7 +55,8 @@ async def call_gpt_vision_api(
             }
         )
 
-    response = client.responses.parse(
+    response = await asyncio.to_thread(
+        client.responses.parse,
         model="gpt-5",
         input=[
             {"role": "system", "content": prompt},
