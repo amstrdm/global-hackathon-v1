@@ -100,7 +100,7 @@ const StatusTracker = ({
             <div className="flex justify-between text-sm">
               <span className="text-gray-400">Escrow Address:</span>
               <span className="text-cyan-400 font-mono text-xs">
-                {room.escrow_address?.slice(0, 10)}...
+                {room.escrow_address.slice(0, 10)}...
               </span>
             </div>
             {room.description && (

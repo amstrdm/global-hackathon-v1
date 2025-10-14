@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useRoomStore, useUserStore } from "../store/useStore";
 import { sendMessage } from "../api/websocket";
-import { createContractSignature } from "../lib/crypto";
+import { useCryptoSigner } from "../lib/useCryptoSigner";
+import { SignatureModal } from "./SignatureModal";
+
+// --- Sub-components ---
 
 const ActionButton = ({
   onClick,
@@ -32,14 +35,12 @@ const ActionButton = ({
   );
 };
 
-// A new component for the negotiation UI to keep the main panel clean
 const DescriptionNegotiation = ({ isMyTurn }: { isMyTurn: boolean }) => {
   const { room } = useRoomStore();
   const [editedDescription, setEditedDescription] = useState(
     room?.description || ""
   );
 
-  // Keep local state in sync with global state from WebSocket
   useEffect(() => {
     setEditedDescription(room?.description || "");
   }, [room?.description]);
@@ -102,40 +103,29 @@ const DescriptionNegotiation = ({ isMyTurn }: { isMyTurn: boolean }) => {
   );
 };
 
+// --- Main ActionPanel Component ---
+
 const ActionPanel = () => {
   const { room } = useRoomStore();
   const { user } = useUserStore();
   const [description, setDescription] = useState("");
 
+  const {
+    initiateSigning,
+    signingContext,
+    isProcessing,
+    error: signError,
+    closeModal,
+    privateKey,
+    setPrivateKey,
+    signWithLoadedKey,
+    submitExternalSignature,
+  } = useCryptoSigner();
+
   if (!room || !user) return null;
 
   const isBuyer = user.user_id === room.buyer_id;
   const isSeller = user.user_id === room.seller_id;
-
-  const handleSign = (decision: "RELEASE_TO_SELLER" | "REFUND_TO_BUYER") => {
-    // HOTFIX: Bypass signature creation for now
-    console.log("HOTFIX: Bypassing signature creation");
-    
-    try {
-      if (decision === "RELEASE_TO_SELLER") {
-        if (isBuyer) {
-          sendMessage({
-            type: "transaction_successfull",
-            signed_message: "hotfix_signature_buyer",
-          });
-        }
-        if (isSeller) {
-          sendMessage({ 
-            type: "product_delivered", 
-            signed_message: "hotfix_signature_seller" 
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error in handleSign:", error);
-      alert(`Failed to send message: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  };
 
   const renderActions = () => {
     switch (room.status) {
@@ -199,8 +189,13 @@ const ActionPanel = () => {
       case "MONEY_SECURED":
         if (isSeller) {
           return (
-            <ActionButton onClick={() => handleSign("RELEASE_TO_SELLER")}>
-              Confirm Product Delivered
+            <ActionButton
+              onClick={() =>
+                initiateSigning("RELEASE_TO_SELLER", "product_delivered")
+              }
+              disabled={isProcessing}
+            >
+              {isProcessing ? "Processing..." : "Confirm Product Delivered"}
             </ActionButton>
           );
         }
@@ -215,14 +210,27 @@ const ActionPanel = () => {
         if (isBuyer) {
           return (
             <div className="space-y-2">
-              <ActionButton onClick={() => handleSign("RELEASE_TO_SELLER")}>
-                Confirm & Release Funds
-              </ActionButton>
-              <button
-                onClick={() => sendMessage({ type: "init_dispute" })}
-                className="w-full py-2 px-4 bg-red-600 hover:bg-red-700 rounded-md font-semibold transition"
+              <ActionButton
+                onClick={() =>
+                  initiateSigning(
+                    "RELEASE_TO_SELLER",
+                    "transaction_successfull"
+                  )
+                }
+                disabled={isProcessing}
               >
-                Initiate Dispute
+                {isProcessing ? "Processing..." : "Confirm & Release Funds"}
+              </ActionButton>
+
+              {/* MODIFIED: This button now also uses the signing flow */}
+              <button
+                onClick={() =>
+                  initiateSigning("REFUND_TO_BUYER", "init_dispute")
+                }
+                className="w-full py-2 px-4 bg-red-600 hover:bg-red-700 rounded-md font-semibold transition"
+                disabled={isProcessing}
+              >
+                {isProcessing ? "Processing..." : "Initiate Dispute"}
               </button>
             </div>
           );
@@ -253,7 +261,20 @@ const ActionPanel = () => {
   return (
     <div className="mt-6 p-4 bg-gray-900 rounded-md">
       <h3 className="text-lg font-semibold mb-4">Actions</h3>
+      {signError && (
+        <p className="text-red-400 mb-4 text-sm">Error: {signError}</p>
+      )}
       {renderActions()}
+
+      <SignatureModal
+        isOpen={signingContext.isOpen}
+        messageToSign={signingContext.messageToSign}
+        isKeyLoaded={!!privateKey}
+        onClose={closeModal}
+        onLoadKey={setPrivateKey}
+        onSignWithBrowser={signWithLoadedKey}
+        onSubmitExternalSignature={submitExternalSignature}
+      />
     </div>
   );
 };

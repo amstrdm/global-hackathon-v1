@@ -13,6 +13,7 @@ import WalletDisplay from "../components/WalletDisplay";
 import LoadingSpinner from "../components/LoadingSpinner";
 import AnimatedBackground from "../components/AnimatedBackground";
 import GlassSurface from "../components/GlassSurface";
+import { KeyManager } from "../components/KeyManager";
 
 const Room = () => {
   const { room_phrase } = useParams<{ room_phrase: string }>();
@@ -20,6 +21,7 @@ const Room = () => {
   const { user, setWallet } = useUserStore();
   const { room, setRoom } = useRoomStore();
   const [connectionError, setConnectionError] = useState("");
+  const [privateKey, setPrivateKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!room_phrase || !user) {
@@ -28,7 +30,7 @@ const Room = () => {
     }
 
     setConnectionError("");
-    
+
     // Fetch wallet data when entering room
     const fetchWalletData = async () => {
       try {
@@ -41,11 +43,11 @@ const Room = () => {
           user_id: user.user_id,
           balance: 1000, // Default balance for testing
           locked: 0,
-          transactions: []
+          transactions: [],
         });
       }
     };
-    
+
     fetchWalletData();
     connectWebSocket(room_phrase, user.user_id);
 
@@ -92,26 +94,37 @@ const Room = () => {
     room.dispute_status === "AWAITING_EVIDENCE" &&
     user?.role === "SELLER";
 
+  const needsSignature =
+    (room.status === "MONEY_SECURED" && user?.user_id === room.seller_id) ||
+    (room.status === "PRODUCT_DELIVERED" && user?.user_id === room.buyer_id);
 
   const getBackgroundStatus = () => {
     if (room.status === "DISPUTE") return "dispute";
-    if (room.status === "COMPLETE" || room.status === "TRANSACTION SUCCESSFULL") return "complete";
+    if (room.status === "COMPLETE" || room.status === "TRANSACTION SUCCESSFULL")
+      return "complete";
     return "transaction";
   };
 
   return (
     <div className="relative min-h-screen overflow-hidden">
       <AnimatedBackground status={getBackgroundStatus()} />
-      
+
       <div className="relative z-10 max-w-7xl mx-auto p-4">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-3">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-3xl text-white font-light" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                <h2
+                  className="text-3xl text-white font-light"
+                  style={{
+                    fontFamily: "Inter, system-ui, -apple-system, sans-serif",
+                  }}
+                >
                   Transaction Room:{" "}
-                  <span className="text-cyan-400 font-mono">{room.room_phrase}</span>
+                  <span className="text-cyan-400 font-mono">
+                    {room.room_phrase}
+                  </span>
                 </h2>
                 <GlassSurface
                   width={180}
@@ -123,27 +136,31 @@ const Room = () => {
                   onClick={() => navigate("/dashboard")}
                 >
                   <div className="flex items-center justify-center h-full">
-                    <span 
+                    <span
                       className="text-white text-lg font-light"
-                      style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
+                      style={{
+                        fontFamily:
+                          "Inter, system-ui, -apple-system, sans-serif",
+                      }}
                     >
                       Back to Dashboard
                     </span>
                   </div>
                 </GlassSurface>
               </div>
-              
+
               <StatusTracker
                 status={room.status}
                 disputeStatus={room.dispute_status}
               />
-              
-              <ActionPanel />
-              
+              <div className="space-y-6 mt-6">
+                <ActionPanel />
+              </div>
+
               {showEvidenceUploader && <EvidenceUploader />}
-              
+
               {room.contract && <ContractDetails />}
-              
+
               {room.ai_verdict && <AIVerdict />}
             </div>
           </div>
