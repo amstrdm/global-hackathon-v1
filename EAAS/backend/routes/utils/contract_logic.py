@@ -60,19 +60,19 @@ def sign(
     """Applies a signature to a contract dictionary and returns the updated dictionary."""
     if contract["status"] != "ACTIVE":
         raise ValueError("Contract is not active.")
-    print("WERE SIGNING")
-    # Get public key and signature from hex
-    public_key_hex = contract["public_keys"][party.value]
-    print(public_key_hex)
-    public_key_pem = bytes.fromhex(public_key_hex)
-    print("NORMAL EKYS DONE")
+
+    # 1. Get the public key PEM string and encode it to bytes.
+    public_key_pem_string = contract["public_keys"][party.value]
+    public_key_bytes = public_key_pem_string.encode("utf-8")
+
+    # 2. Convert the signature from a hex string to bytes.
     signature_bytes = bytes.fromhex(signature_hex)
-    print("TRYING TO GET SIGNATURE")
+
     # The message that was signed
     message = f"{contract['contract_id']}:{party.value}:{decision.value}"
 
-    # Verify the signature
-    is_valid = CryptoUtils.verify_signature(message, signature_bytes, public_key_pem)
+    # Verify the signature using the public key bytes
+    is_valid = CryptoUtils.verify_signature(message, signature_bytes, public_key_bytes)
     if not is_valid:
         raise ValueError(f"Invalid signature for {party.value}")
 

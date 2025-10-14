@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 router = APIRouter()
-UPLOAD_DIR = "./uploads"
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, ".."))
+UPLOAD_DIR = os.path.join(project_root, "uploads")
 
 
 @router.post("/rooms/{room_phrase}/{user_id}/upload_evidence")
@@ -51,7 +53,9 @@ async def upload_evidence(
     if evidence_type not in room.submitted_evidence:
         room.submitted_evidence[evidence_type] = []
 
-    room.submitted_evidence[evidence_type].append(file_path)
+    room.submitted_evidence[evidence_type].append(
+        os.path.join(room_phrase, file.filename)
+    )
     flag_modified(room, "submitted_evidence")
 
     db.commit()

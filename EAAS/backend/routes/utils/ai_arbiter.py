@@ -114,10 +114,14 @@ class AIVerifier:
         """Multi-step verification process using your proposed logic."""
 
         verification_results = []
-
         # --- Image Verification ---
-        if evidence_bundle.get("screenshot_of_deliverable"):
-            image_paths = evidence_bundle["screenshot_of_deliverable"]
+        if evidence_bundle:
+            image_paths = [
+                os.path.join(project_root, "uploads", path)
+                for path_list in evidence_bundle.values()
+                for path in path_list
+            ]
+
             image_analysis = await self._verify_images(image_paths, transaction_details)
             verification_results.append(image_analysis)
 

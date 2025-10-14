@@ -5,6 +5,7 @@ from typing import List
 
 from database.db import get_db, get_session
 from database.models import Room, User
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -15,6 +16,11 @@ from .utils.utils import keccak256_with_stdlib, room_to_dict
 
 logger = get_logger()
 router = APIRouter()
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, ".."))
+env_path = os.path.join(project_root, ".env")
+load_dotenv(env_path)
 
 
 class RoomCreate(BaseModel):
@@ -63,24 +69,27 @@ def create_room(room_data: RoomCreate, user_id: str, db: Session = Depends(get_d
     if not user:
         raise HTTPException(status_code=404, detail="User does not exist.")
 
-    if not user.role == "SELLER":
+    if user.role != "SELLER":
         raise HTTPException(
             status_code=403, detail="You need to be a Seller to create a room."
         )
 
+    ai_public_key_pem = os.getenv("AI_PUBLIC_KEY")
+    if not ai_public_key_pem:
+        raise HTTPException(
+            status_code=500,
+            detail="AI Oracle public key is not configured on the server.",
+        )
+
     room_phrase = generate_room_phrase()
     escrow_address = keccak256_with_stdlib()
-
-    crypto = CryptoUtils()
-    ai_private, ai_public = crypto.generate_keypair()
 
     room = Room(
         room_phrase=room_phrase,
         escrow_address=escrow_address,
         seller_id=user.id,
         seller_public_key=user.public_key,
-        ai_public_key=ai_public.hex(),
-        private_key=ai_private.hex(),
+        ai_public_key=ai_public_key_pem,
         amount=room_data.amount,
         status="WAITING_FOR_BUYER",
         created_at=datetime.now(),

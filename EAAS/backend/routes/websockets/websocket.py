@@ -61,10 +61,23 @@ async def websocket_endpoint(
         )
         return
 
+    if not wallet:
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="No wallet associated with User",
+        )
+        return
+
     print(user.role)
 
     if user.role == "BUYER":
         if room.buyer_id is None:
+            if room.amount > wallet.balance:
+                await websocket.close(
+                    code=status.WS_1008_POLICY_VIOLATION,
+                    reason="Your Balance is too low to partake in this transaction",
+                )
+                return
             room.buyer_id = user.id
             room.buyer_public_key = user.public_key
             room.status = "AWAITING_DESCRIPTION"
@@ -74,12 +87,6 @@ async def websocket_endpoint(
             await websocket.close(
                 code=status.WS_1008_POLICY_VIOLATION,
                 reason="Room already has a buyer",
-            )
-            return
-        elif room.amount > wallet.balance:
-            await websocket.close(
-                code=status.WS_1008_POLICY_VIOLATION,
-                reason="Your Balance is too low to partake in this transaction",
             )
             return
 
